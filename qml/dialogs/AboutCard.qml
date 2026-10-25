@@ -41,14 +41,14 @@ Item {
             }
             Text {
                 anchors.horizontalCenter: parent.horizontalCenter
-                text: Strings.t(Strings.AboutText) + app.version
+                text: (Strings.lang, Strings.t(Strings.AboutText)) + app.version
                 color: Theme.text
                 font.pixelSize: 13
                 font.bold: true
             }
             Text {
                 width: parent.width
-                text: Strings.t(Strings.AboutLegal)
+                text: (Strings.lang, Strings.t(Strings.AboutLegal))
                 color: Theme.sub
                 font.pixelSize: 11
                 wrapMode: Text.Wrap
@@ -63,7 +63,7 @@ Item {
                     border.width: 1; border.color: Theme.stroke
                     Text {
                         anchors.centerIn: parent
-                        text: Strings.t(Strings.GithubLabel)
+                        text: (Strings.lang, Strings.t(Strings.GithubLabel))
                         color: Theme.text
                         font.pixelSize: 11
                     }
@@ -81,10 +81,10 @@ Item {
                     Text {
                         anchors.centerIn: parent
                         text: Updater.checking
-                              ? Strings.t(Strings.UpdateCheck)
+                              ? (Strings.lang, Strings.t(Strings.UpdateCheck))
                               : (Updater.available
-                                 ? Strings.t(Strings.UpdateNew) + Updater.latestVersion
-                                 : Strings.t(Strings.UpdateLatest))
+                                 ? (Strings.lang, Strings.t(Strings.UpdateNew)) + Updater.latestVersion
+                                 : (Strings.lang, Strings.t(Strings.UpdateLatest)))
                         color: "#1A1A1A"
                         font.pixelSize: 11
                         font.bold: true

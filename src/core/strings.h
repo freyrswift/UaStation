@@ -72,7 +72,8 @@ public:
     int lang() const { return m_lang; }
     void setLang(int lang);
 
-    // QML-callable: `Strings.t(Strings.ThemeDark)` returns the current-language text.
+    // Direct lookup. QML bindings that call this directly do NOT auto-refresh
+    // when `lang` changes, because QML tracks property reads, not method calls.
     Q_INVOKABLE QString t(int id) const;
 
     // Convenience for native code; same mapping.

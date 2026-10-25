@@ -62,12 +62,12 @@ Item {
                 Text {
                     text: {
                         if (!root.item) return ""
-                        if (!root.item.supported) return Strings.t(Strings.NotSupported)
-                        if (!root.item.detected)  return Strings.t(Strings.ToolNotFound)
+                        if (!root.item.supported) return (Strings.lang, Strings.t(Strings.NotSupported))
+                        if (!root.item.detected)  return (Strings.lang, Strings.t(Strings.ToolNotFound))
                         switch (root.item.state) {
-                        case 1:  return Strings.t(Strings.Injected)
-                        case 2:  return Strings.t(Strings.FileHasContent)
-                        default: return Strings.t(Strings.NotInjected)
+                        case 1:  return (Strings.lang, Strings.t(Strings.Injected))
+                        case 2:  return (Strings.lang, Strings.t(Strings.FileHasContent))
+                        default: return (Strings.lang, Strings.t(Strings.NotInjected))
                         }
                     }
                     color: Theme.sub
@@ -80,7 +80,7 @@ Item {
         Text {
             id: promptsLabel
             anchors { top: parent.top; left: parent.left; margins: 16; topMargin: 72 }
-            text: Strings.t(Strings.SelectPrompt)
+            text: (Strings.lang, Strings.t(Strings.SelectPrompt))
             color: Theme.sub
             font.pixelSize: 11
         }
@@ -123,7 +123,7 @@ Item {
         Text {
             anchors { top: promptsList.bottom; horizontalCenter: parent.horizontalCenter; topMargin: 4 }
             visible: root.promptList.length === 0
-            text: Strings.t(Strings.NoPrompts)
+            text: (Strings.lang, Strings.t(Strings.NoPrompts))
             color: Theme.sub
             font.pixelSize: 11
         }
@@ -134,34 +134,34 @@ Item {
             spacing: 10
 
             DialogButton {
-                label: Strings.t(Strings.Website)
+                label: (Strings.lang, Strings.t(Strings.Website))
                 actionable: root.item && root.item.url !== ""
                 onTriggered: app.openUrl(root.item.url)
             }
             DialogButton {
-                label: Strings.t(Strings.Uninstall)
+                label: (Strings.lang, Strings.t(Strings.Uninstall))
                 actionable: root.item && root.item.state === 1
                 onTriggered: {
                     if (app.uninstall(root.itemId)) {
-                        app.showToast(root.item.name + Strings.t(Strings.UninstallOk))
+                        app.showToast(root.item.name + (Strings.lang, Strings.t(Strings.UninstallOk)))
                         root.closeRequested()
                     }
                 }
             }
             DialogButton {
-                label: Strings.t(Strings.Inject)
+                label: (Strings.lang, Strings.t(Strings.Inject))
                 primary: true
                 actionable: root.item && root.item.detected && root.promptList.length > 0
                 onTriggered: {
                     const promptFile = root.promptList[root.selectedPrompt].fullPath
                     if (app.install(root.itemId, promptFile)) {
-                        app.showToast(root.item.name + Strings.t(Strings.InjectRestartHint))
+                        app.showToast(root.item.name + (Strings.lang, Strings.t(Strings.InjectRestartHint)))
                         root.closeRequested()
                     }
                 }
             }
             DialogButton {
-                label: Strings.t(Strings.Open)
+                label: (Strings.lang, Strings.t(Strings.Open))
                 onTriggered: app.revealTargetDir(root.itemId)
             }
         }

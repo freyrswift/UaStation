@@ -38,14 +38,14 @@ Item {
         Text {
             id: title
             anchors { top: parent.top; left: parent.left; margins: 16 }
-            text: Strings.t(Strings.SkillsTitle)
+            text: (Strings.lang, Strings.t(Strings.SkillsTitle))
             color: Theme.text
             font.pixelSize: 14
             font.bold: true
         }
         Text {
             anchors { top: title.bottom; left: parent.left; margins: 16; topMargin: 2 }
-            text: Strings.t(Strings.SkillCountFmt)
+            text: (Strings.lang, Strings.t(Strings.SkillCountFmt))
                       .arg(root.filteredSkills.length)
                       .arg(root.allSkills.length)
             color: Theme.sub
@@ -71,7 +71,7 @@ Item {
                 Text {
                     anchors.verticalCenter: parent.verticalCenter
                     visible: parent.text === ""
-                    text: Strings.t(Strings.SkillSearchPlaceholder)
+                    text: (Strings.lang, Strings.t(Strings.SkillSearchPlaceholder))
                     color: Theme.sub
                     font.pixelSize: 11
                 }
@@ -102,7 +102,7 @@ Item {
                 }
                 Text {
                     anchors { right: removeBtn.left; verticalCenter: parent.verticalCenter; rightMargin: 10 }
-                    text: Strings.t(Strings.SkillToolCountFmt).arg(modelData.installedCount)
+                    text: (Strings.lang, Strings.t(Strings.SkillToolCountFmt)).arg(modelData.installedCount)
                     color: Theme.sub
                     font.pixelSize: 10
                 }
@@ -142,7 +142,7 @@ Item {
         Text {
             anchors.centerIn: skillList
             visible: root.filteredSkills.length === 0
-            text: Strings.t(Strings.SkillNoMatch)
+            text: (Strings.lang, Strings.t(Strings.SkillNoMatch))
             color: Theme.sub
             font.pixelSize: 12
         }
@@ -159,7 +159,7 @@ Item {
             }
             Text {
                 anchors.centerIn: parent
-                text: Strings.t(Strings.SkillsFolder)
+                text: (Strings.lang, Strings.t(Strings.SkillsFolder))
                 color: "#1A1A1A"
                 font.pixelSize: 12
                 font.bold: true

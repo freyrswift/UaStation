@@ -38,12 +38,12 @@ Rectangle {
 
         // Theme: segmented control
         SegmentedRow {
-            label: Strings.t(Strings.Theme)
+            label: (Strings.lang, Strings.t(Strings.Theme))
             glyph: ""
             options: [
-                { text: Strings.t(Strings.ThemeSystem), glyph: "" },
-                { text: Strings.t(Strings.ThemeDark),   glyph: "" },
-                { text: Strings.t(Strings.ThemeLight),  glyph: "" },
+                { text: (Strings.lang, Strings.t(Strings.ThemeSystem)), glyph: "" },
+                { text: (Strings.lang, Strings.t(Strings.ThemeDark)),   glyph: "" },
+                { text: (Strings.lang, Strings.t(Strings.ThemeLight)),  glyph: "" },
             ]
             selectedIndex: Settings.themeMode
             onSelect: (i) => { Settings.themeMode = i }
@@ -51,7 +51,7 @@ Rectangle {
 
         // Language: segmented control
         SegmentedRow {
-            label: Strings.t(Strings.Lang)
+            label: (Strings.lang, Strings.t(Strings.Lang))
             glyph: ""
             options: [
                 { text: "中文",    glyph: "" },
@@ -65,12 +65,12 @@ Rectangle {
 
         // Toggles
         ToggleRow {
-            label: Strings.t(Strings.Topmost); glyph: ""
+            label: (Strings.lang, Strings.t(Strings.Topmost)); glyph: ""
             toggled: Settings.topmost
             onToggle: { Settings.topmost = !Settings.topmost }
         }
         ToggleRow {
-            label: Strings.t(Strings.Autostart); glyph: ""
+            label: (Strings.lang, Strings.t(Strings.Autostart)); glyph: ""
             toggled: Settings.autostart
             onToggle: { Settings.autostart = !Settings.autostart }
         }
@@ -79,20 +79,20 @@ Rectangle {
 
         // Actions
         ActionRow {
-            label: Updater.checking ? Strings.t(Strings.UpdateCheck) : Strings.t(Strings.CheckUpdate)
+            label: Updater.checking ? (Strings.lang, Strings.t(Strings.UpdateCheck)) : (Strings.lang, Strings.t(Strings.CheckUpdate))
             glyph: ""
             onTriggered: { Updater.check(); root.closeRequested() }
         }
         ActionRow {
-            label: Strings.t(Strings.CleanData); glyph: ""
+            label: (Strings.lang, Strings.t(Strings.CleanData)); glyph: ""
             onTriggered: { app.showToast("TODO"); root.closeRequested() }
         }
         ActionRow {
-            label: Strings.t(Strings.About); glyph: ""
+            label: (Strings.lang, Strings.t(Strings.About)); glyph: ""
             onTriggered: root.aboutRequested()
         }
         ActionRow {
-            label: Strings.t(Strings.Exit); glyph: ""
+            label: (Strings.lang, Strings.t(Strings.Exit)); glyph: ""
             danger: true
             onTriggered: app.quit()
         }

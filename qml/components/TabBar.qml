@@ -14,7 +14,7 @@ Item {
     Row {
         anchors.fill: parent
         Repeater {
-            model: [Strings.t(Strings.TabEditor), Strings.t(Strings.TabTools)]
+            model: [(Strings.lang, Strings.t(Strings.TabEditor)), (Strings.lang, Strings.t(Strings.TabTools))]
             delegate: Rectangle {
                 width: root.width / 2 - 4
                 height: root.height

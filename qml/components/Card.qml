@@ -98,11 +98,11 @@ Rectangle {
                 if (!root.item) return ""
                 if (root.item.sub && root.item.sub !== "") return root.item.sub
                 if (!root.item.supported) return ""
-                if (!root.item.detected)  return Strings.t(Strings.ToolNotFound)
+                if (!root.item.detected)  return (Strings.lang, Strings.t(Strings.ToolNotFound))
                 switch (root.item.state) {
-                case 1:  return Strings.t(Strings.Injected)
-                case 2:  return Strings.t(Strings.FileHasContent)
-                default: return Strings.t(Strings.NotInjected)
+                case 1:  return (Strings.lang, Strings.t(Strings.Injected))
+                case 2:  return (Strings.lang, Strings.t(Strings.FileHasContent))
+                default: return (Strings.lang, Strings.t(Strings.NotInjected))
                 }
             }
             color: Theme.sub

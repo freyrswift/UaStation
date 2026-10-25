@@ -25,7 +25,7 @@ Item {
         Text {
             id: title
             anchors { top: parent.top; horizontalCenter: parent.horizontalCenter; topMargin: 20 }
-            text: Strings.t(Strings.DisclaimerTitle)
+            text: (Strings.lang, Strings.t(Strings.DisclaimerTitle))
             color: Theme.text
             font.pixelSize: 16
             font.bold: true
@@ -40,7 +40,7 @@ Item {
             Text {
                 id: body
                 width: parent.width
-                text: Strings.t(Strings.DisclaimerBody)
+                text: (Strings.lang, Strings.t(Strings.DisclaimerBody))
                 color: Theme.sub
                 font.pixelSize: 12
                 wrapMode: Text.Wrap
@@ -53,7 +53,7 @@ Item {
             color: ma.containsMouse ? Theme.accent : Qt.darker(Theme.accent, 1.1)
             Text {
                 anchors.centerIn: parent
-                text: Strings.t(Strings.DisclaimerBtn)
+                text: (Strings.lang, Strings.t(Strings.DisclaimerBtn))
                 color: "#1A1A1A"
                 font.pixelSize: 13
                 font.bold: true
