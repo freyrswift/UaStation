@@ -106,10 +106,10 @@ endif()
 # ---------------------------------------------------------------------------
 # QML module
 # ---------------------------------------------------------------------------
-# Mark Palette as a QML singleton so `Palette.windowW` resolves from any QML
-# file. Needed because qt_add_qml_module's auto-detection of `pragma Singleton`
-# can miss the file depending on CMake caching.
-set_source_files_properties(qml/theme/Palette.qml PROPERTIES
+# Qt's auto-detection of `pragma Singleton` in QML_FILES is unreliable in
+# this version; mark the Theme singleton explicitly so qmldir gets
+# `singleton Theme 1.0 ...` and its properties resolve at runtime.
+set_source_files_properties(qml/theme/Theme.qml PROPERTIES
     QT_QML_SINGLETON_TYPE TRUE
 )
 
@@ -128,7 +128,7 @@ qt_add_qml_module(Ua
         qml/dialogs/SkillsManager.qml
         qml/dialogs/AboutCard.qml
         qml/dialogs/Disclaimer.qml
-        qml/theme/Palette.qml
+        qml/theme/Theme.qml
 )
 
 # Embedded resources (prompts, skills, logos, icon). We ship a .qrc file so

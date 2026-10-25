@@ -22,9 +22,9 @@ Item {
         width: 380
         height: 440
         radius: 10
-        color: Palette.surface
+        color: Theme.surface
         border.width: 1
-        border.color: Palette.stroke
+        border.color: Theme.stroke
         MouseArea { anchors.fill: parent }  // block click-through
 
         // Close
@@ -42,7 +42,7 @@ Item {
                 width: 36; height: 36; radius: 6
                 color: root.item && root.item.framed
                        ? "transparent"
-                       : (Palette.dark ? "#3A3A3A" : "#EAEAEA")
+                       : (Theme.dark ? "#3A3A3A" : "#EAEAEA")
                 Image {
                     anchors.fill: parent
                     anchors.margins: 2
@@ -55,7 +55,7 @@ Item {
                 spacing: 2
                 Text {
                     text: root.item ? root.item.name : ""
-                    color: Palette.text
+                    color: Theme.text
                     font.pixelSize: 14
                     font.bold: true
                 }
@@ -70,7 +70,7 @@ Item {
                         default: return Strings.t(Strings.NotInjected)
                         }
                     }
-                    color: Palette.sub
+                    color: Theme.sub
                     font.pixelSize: 11
                 }
             }
@@ -81,7 +81,7 @@ Item {
             id: promptsLabel
             anchors { top: parent.top; left: parent.left; margins: 16; topMargin: 72 }
             text: Strings.t(Strings.SelectPrompt)
-            color: Palette.sub
+            color: Theme.sub
             font.pixelSize: 11
         }
 
@@ -99,15 +99,15 @@ Item {
                 height: 36
                 radius: 6
                 color: index === root.selectedPrompt
-                       ? Palette.accent
-                       : (hoverMa.containsMouse ? Palette.surfaceAlt : "transparent")
+                       ? Theme.accent
+                       : (hoverMa.containsMouse ? Theme.surfaceAlt : "transparent")
                 border.width: 1
-                border.color: index === root.selectedPrompt ? Palette.accent : Palette.stroke
+                border.color: index === root.selectedPrompt ? Theme.accent : Theme.stroke
 
                 Text {
                     anchors { verticalCenter: parent.verticalCenter; left: parent.left; leftMargin: 12 }
                     text: modelData.name
-                    color: index === root.selectedPrompt ? "#1A1A1A" : Palette.text
+                    color: index === root.selectedPrompt ? "#1A1A1A" : Theme.text
                     font.pixelSize: 12
                 }
                 MouseArea {
@@ -124,7 +124,7 @@ Item {
             anchors { top: promptsList.bottom; horizontalCenter: parent.horizontalCenter; topMargin: 4 }
             visible: root.promptList.length === 0
             text: Strings.t(Strings.NoPrompts)
-            color: Palette.sub
+            color: Theme.sub
             font.pixelSize: 11
         }
 
@@ -175,16 +175,16 @@ Item {
 
         width: 72; height: 30; radius: 6
         color: !enabled
-               ? (Palette.dark ? "#333" : "#DDD")
-               : primary ? (ma.containsMouse ? Palette.accent : Qt.darker(Palette.accent, 1.1))
-                         : (ma.containsMouse ? Palette.surfaceAlt : "transparent")
+               ? (Theme.dark ? "#333" : "#DDD")
+               : primary ? (ma.containsMouse ? Theme.accent : Qt.darker(Theme.accent, 1.1))
+                         : (ma.containsMouse ? Theme.surfaceAlt : "transparent")
         border.width: primary ? 0 : 1
-        border.color: Palette.stroke
+        border.color: Theme.stroke
 
         Text {
             anchors.centerIn: parent
             text: label
-            color: primary ? "#1A1A1A" : Palette.text
+            color: primary ? "#1A1A1A" : Theme.text
             font.pixelSize: 11
             font.bold: primary
         }

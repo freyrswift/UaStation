@@ -8,7 +8,7 @@ Rectangle {
     width: label.implicitWidth + 24
     height: 32
     radius: 16
-    color: Palette.dark ? Qt.rgba(0.1, 0.1, 0.1, 0.9) : Qt.rgba(0.1, 0.1, 0.1, 0.9)
+    color: Theme.dark ? Qt.rgba(0.1, 0.1, 0.1, 0.9) : Qt.rgba(0.1, 0.1, 0.1, 0.9)
     visible: label.text !== ""
     opacity: visible ? 1 : 0
     Behavior on opacity { NumberAnimation { duration: 150 } }

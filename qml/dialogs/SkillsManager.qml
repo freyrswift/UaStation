@@ -24,9 +24,9 @@ Item {
         width: 400
         height: 460
         radius: 10
-        color: Palette.surface
+        color: Theme.surface
         border.width: 1
-        border.color: Palette.stroke
+        border.color: Theme.stroke
         MouseArea { anchors.fill: parent }  // block click-through
 
         TitleButton {
@@ -39,7 +39,7 @@ Item {
             id: title
             anchors { top: parent.top; left: parent.left; margins: 16 }
             text: Strings.t(Strings.SkillsTitle)
-            color: Palette.text
+            color: Theme.text
             font.pixelSize: 14
             font.bold: true
         }
@@ -48,7 +48,7 @@ Item {
             text: Strings.t(Strings.SkillCountFmt)
                       .arg(root.filteredSkills.length)
                       .arg(root.allSkills.length)
-            color: Palette.sub
+            color: Theme.sub
             font.pixelSize: 11
         }
 
@@ -57,14 +57,14 @@ Item {
             id: searchBox
             anchors { top: parent.top; right: parent.right; margins: 16 }
             width: 160; height: 28; radius: 6
-            color: Palette.surfaceAlt
+            color: Theme.surfaceAlt
             border.width: 1
-            border.color: Palette.stroke
+            border.color: Theme.stroke
 
             TextInput {
                 anchors { fill: parent; margins: 8 }
                 clip: true
-                color: Palette.text
+                color: Theme.text
                 verticalAlignment: TextInput.AlignVCenter
                 selectByMouse: true
                 onTextChanged: root.filter = text
@@ -72,7 +72,7 @@ Item {
                     anchors.verticalCenter: parent.verticalCenter
                     visible: parent.text === ""
                     text: Strings.t(Strings.SkillSearchPlaceholder)
-                    color: Palette.sub
+                    color: Theme.sub
                     font.pixelSize: 11
                 }
             }
@@ -92,32 +92,32 @@ Item {
                 width: skillList.width
                 height: 32
                 radius: 4
-                color: hoverMa.containsMouse ? Palette.surfaceAlt : "transparent"
+                color: hoverMa.containsMouse ? Theme.surfaceAlt : "transparent"
 
                 Text {
                     anchors { left: parent.left; verticalCenter: parent.verticalCenter; leftMargin: 10 }
                     text: modelData.dirName
-                    color: Palette.text
+                    color: Theme.text
                     font.pixelSize: 12
                 }
                 Text {
                     anchors { right: removeBtn.left; verticalCenter: parent.verticalCenter; rightMargin: 10 }
                     text: Strings.t(Strings.SkillToolCountFmt).arg(modelData.installedCount)
-                    color: Palette.sub
+                    color: Theme.sub
                     font.pixelSize: 10
                 }
                 Rectangle {
                     id: removeBtn
                     anchors { right: parent.right; verticalCenter: parent.verticalCenter; rightMargin: 6 }
                     width: 24; height: 24; radius: 4
-                    color: rma.containsMouse ? (Palette.dark ? "#5A2A2A" : "#F6D5D5") : "transparent"
+                    color: rma.containsMouse ? (Theme.dark ? "#5A2A2A" : "#F6D5D5") : "transparent"
                     visible: modelData.installedCount > 0
                     IconGlyph {
                         anchors.centerIn: parent
                         text: ""
                         pixelSize: 12
-                        color: rma.containsMouse ? (Palette.dark ? "#FF9A9A" : "#B33")
-                                                 : Palette.sub
+                        color: rma.containsMouse ? (Theme.dark ? "#FF9A9A" : "#B33")
+                                                 : Theme.sub
                     }
                     MouseArea {
                         id: rma
@@ -143,7 +143,7 @@ Item {
             anchors.centerIn: skillList
             visible: root.filteredSkills.length === 0
             text: Strings.t(Strings.SkillNoMatch)
-            color: Palette.sub
+            color: Theme.sub
             font.pixelSize: 12
         }
 
@@ -151,7 +151,7 @@ Item {
             id: footer
             anchors { bottom: parent.bottom; horizontalCenter: parent.horizontalCenter; bottomMargin: 16 }
             width: 200; height: 32; radius: 6
-            color: fma.containsMouse ? Palette.accent : Qt.darker(Palette.accent, 1.1)
+            color: fma.containsMouse ? Theme.accent : Qt.darker(Theme.accent, 1.1)
 
             IconGlyph {
                 anchors { left: parent.left; verticalCenter: parent.verticalCenter; leftMargin: 10 }

@@ -18,15 +18,15 @@ Item {
         width: 380
         height: 340
         radius: 10
-        color: Palette.surface
+        color: Theme.surface
         border.width: 1
-        border.color: Palette.stroke
+        border.color: Theme.stroke
 
         Text {
             id: title
             anchors { top: parent.top; horizontalCenter: parent.horizontalCenter; topMargin: 20 }
             text: Strings.t(Strings.DisclaimerTitle)
-            color: Palette.text
+            color: Theme.text
             font.pixelSize: 16
             font.bold: true
         }
@@ -41,7 +41,7 @@ Item {
                 id: body
                 width: parent.width
                 text: Strings.t(Strings.DisclaimerBody)
-                color: Palette.sub
+                color: Theme.sub
                 font.pixelSize: 12
                 wrapMode: Text.Wrap
             }
@@ -50,7 +50,7 @@ Item {
             id: acceptBtn
             anchors { bottom: parent.bottom; horizontalCenter: parent.horizontalCenter; bottomMargin: 20 }
             width: 160; height: 32; radius: 6
-            color: ma.containsMouse ? Palette.accent : Qt.darker(Palette.accent, 1.1)
+            color: ma.containsMouse ? Theme.accent : Qt.darker(Theme.accent, 1.1)
             Text {
                 anchors.centerIn: parent
                 text: Strings.t(Strings.DisclaimerBtn)

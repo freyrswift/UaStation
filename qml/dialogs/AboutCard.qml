@@ -17,9 +17,9 @@ Item {
         width: 320
         height: 240
         radius: 10
-        color: Palette.surface
+        color: Theme.surface
         border.width: 1
-        border.color: Palette.stroke
+        border.color: Theme.stroke
 
         // Close
         TitleButton {
@@ -42,14 +42,14 @@ Item {
             Text {
                 anchors.horizontalCenter: parent.horizontalCenter
                 text: Strings.t(Strings.AboutText) + app.version
-                color: Palette.text
+                color: Theme.text
                 font.pixelSize: 13
                 font.bold: true
             }
             Text {
                 width: parent.width
                 text: Strings.t(Strings.AboutLegal)
-                color: Palette.sub
+                color: Theme.sub
                 font.pixelSize: 11
                 wrapMode: Text.Wrap
                 horizontalAlignment: Text.AlignHCenter
@@ -59,12 +59,12 @@ Item {
                 spacing: 10
                 Rectangle {
                     width: 110; height: 28; radius: 6
-                    color: ghMa.containsMouse ? Palette.surfaceAlt : "transparent"
-                    border.width: 1; border.color: Palette.stroke
+                    color: ghMa.containsMouse ? Theme.surfaceAlt : "transparent"
+                    border.width: 1; border.color: Theme.stroke
                     Text {
                         anchors.centerIn: parent
                         text: Strings.t(Strings.GithubLabel)
-                        color: Palette.text
+                        color: Theme.text
                         font.pixelSize: 11
                     }
                     MouseArea {
@@ -77,7 +77,7 @@ Item {
                 }
                 Rectangle {
                     width: 110; height: 28; radius: 6
-                    color: upMa.containsMouse ? Palette.accent : Qt.darker(Palette.accent, 1.15)
+                    color: upMa.containsMouse ? Theme.accent : Qt.darker(Theme.accent, 1.15)
                     Text {
                         anchors.centerIn: parent
                         text: Updater.checking

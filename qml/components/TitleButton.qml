@@ -16,7 +16,7 @@ Rectangle {
     color: {
         if (!ma.containsMouse) return "transparent"
         if (danger) return "#C42B1C"
-        return Palette.dark ? Qt.rgba(1,1,1,0.08) : Qt.rgba(0,0,0,0.05)
+        return Theme.dark ? Qt.rgba(1,1,1,0.08) : Qt.rgba(0,0,0,0.05)
     }
 
     IconGlyph {
@@ -24,7 +24,7 @@ Rectangle {
         text: root.glyph
         pixelSize: 12
         color: (root.danger && ma.containsMouse) ? "#FFFFFF"
-                                                 : (ma.containsMouse ? Palette.text : Palette.sub)
+                                                 : (ma.containsMouse ? Theme.text : Theme.sub)
     }
 
     MouseArea {

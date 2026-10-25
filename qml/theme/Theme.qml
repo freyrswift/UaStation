@@ -1,13 +1,17 @@
 pragma Singleton
 import QtQuick
-import UaApp
 
 // Shared colour / geometry tokens. Singleton so any component can read it as
-// `Palette.text` without passing it down the tree.
+// `Theme.text` without passing it down the tree.
+//
+// Note: we DO NOT import UaApp here even though we'd like to read Settings.themeMode
+// directly, because that creates an implicit circular dependency chain through
+// the module and causes the singleton's properties to resolve as undefined at
+// runtime. Main.qml binds `mode` and `systemIsDark` explicitly instead.
 QtObject {
-    // Mirrors core::Settings::ThemeMode (0 = system, 1 = dark, 2 = light).
-    readonly property int  mode: Settings.themeMode
-    readonly property bool systemIsDark: Settings.systemIsDark()
+    // 0 = system, 1 = dark, 2 = light (matches core::Settings::ThemeMode)
+    property int  mode: 0
+    property bool systemIsDark: false
 
     readonly property bool dark: mode === 0 ? systemIsDark : mode === 1
 

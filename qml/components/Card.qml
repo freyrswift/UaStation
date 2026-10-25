@@ -7,9 +7,9 @@ Rectangle {
     id: root
     radius: 8
     border.width: 1
-    border.color: Palette.dark ? Qt.rgba(1,1,1, ma.containsMouse ? 0.18 : 0.12)
+    border.color: Theme.dark ? Qt.rgba(1,1,1, ma.containsMouse ? 0.18 : 0.12)
                                : Qt.rgba(0,0,0, (ma.containsMouse ? 0.18 : 0.12) * 0.6)
-    color: Palette.dark ? Qt.rgba(1,1,1, ma.containsMouse ? 0.10 : 0.05)
+    color: Theme.dark ? Qt.rgba(1,1,1, ma.containsMouse ? 0.10 : 0.05)
                         : Qt.rgba(0,0,0, (ma.containsMouse ? 0.10 : 0.05) * 0.6)
 
     property var item: ({})
@@ -33,7 +33,7 @@ Rectangle {
         radius: 6
         color: {
             if (root.item && root.item.framed) return "transparent"
-            return Palette.dark ? Qt.rgba(1,1,1,0.08) : Qt.rgba(0,0,0,0.048)
+            return Theme.dark ? Qt.rgba(1,1,1,0.08) : Qt.rgba(0,0,0,0.048)
         }
 
         Image {
@@ -51,7 +51,7 @@ Rectangle {
                   ? String.fromCharCode(parseInt(root.item.glyph, 16))
                   : ""
             pixelSize: 15
-            color: Palette.text
+            color: Theme.text
         }
 
         // "Installed" indicator: green dot at the tile's bottom-right.
@@ -59,7 +59,7 @@ Rectangle {
             visible: root.item && root.item.supported && root.item.state === 1
             width: 10; height: 10; radius: 5
             anchors { right: parent.right; bottom: parent.bottom; rightMargin: -2; bottomMargin: -2 }
-            color: Palette.green
+            color: Theme.green
             border.width: 2
             border.color: root.color
         }
@@ -72,7 +72,7 @@ Rectangle {
         width: 16; height: 16
         text: ""
         pixelSize: 11
-        color: ma.containsMouse ? Palette.text : Palette.sub
+        color: ma.containsMouse ? Theme.text : Theme.sub
     }
 
     // Name + sub
@@ -84,7 +84,7 @@ Rectangle {
         Text {
             width: parent.width
             text: root.item ? (root.item.name || "") : ""
-            color: Palette.text
+            color: Theme.text
             font.pixelSize: 13
             font.bold: true
             elide: Text.ElideRight
@@ -103,7 +103,7 @@ Rectangle {
                 default: return Strings.t(Strings.NotInjected)
                 }
             }
-            color: Palette.sub
+            color: Theme.sub
             font.pixelSize: 11
             elide: Text.ElideRight
         }

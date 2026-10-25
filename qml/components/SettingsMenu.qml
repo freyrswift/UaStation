@@ -6,8 +6,8 @@ Rectangle {
     width: 184
     radius: 8
     border.width: 1
-    border.color: Palette.stroke
-    color: Palette.surface
+    border.color: Theme.stroke
+    color: Theme.surface
     visible: open
     opacity: open ? 1 : 0
     scale: open ? 1 : 0.95
@@ -87,16 +87,16 @@ Rectangle {
         width: parent.width
         height: 28
         radius: 4
-        color: rowMa.containsMouse ? (Palette.dark ? Qt.rgba(1,1,1,0.08) : Qt.rgba(0,0,0,0.04))
+        color: rowMa.containsMouse ? (Theme.dark ? Qt.rgba(1,1,1,0.08) : Qt.rgba(0,0,0,0.04))
                                    : "transparent"
 
         IconGlyph {
             anchors { left: parent.left; verticalCenter: parent.verticalCenter; leftMargin: 8 }
-            text: glyph; pixelSize: 14; color: Palette.text
+            text: glyph; pixelSize: 14; color: Theme.text
         }
         Text {
             anchors { left: parent.left; verticalCenter: parent.verticalCenter; leftMargin: 32 }
-            text: label; color: Palette.text; font.pixelSize: 12
+            text: label; color: Theme.text; font.pixelSize: 12
         }
         MouseArea {
             id: rowMa
@@ -111,6 +111,6 @@ Rectangle {
         width: parent.width - 12
         height: 1
         x: 6
-        color: Palette.stroke
+        color: Theme.stroke
     }
 }

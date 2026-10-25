@@ -22,6 +22,11 @@ Window {
         function onShowMainWindowRequested() { root.show(); root.raise(); root.requestActivate() }
     }
 
+    // Drive the Theme singleton from Settings. Theme can't `import UaApp`
+    // itself without breaking its own property initialisation; see Theme.qml.
+    Binding { target: Theme; property: "mode";         value: Settings.themeMode }
+    Binding { target: Theme; property: "systemIsDark"; value: Settings.systemIsDark() }
+
     // ---------- state ----------
     property int    activeTab: 0
     property string openDialogItemId: ""
@@ -58,10 +63,10 @@ Window {
     Rectangle {
         id: shell
         anchors.fill: parent
-        radius: Palette.radius
-        color: Qt.rgba(Palette.bg.r, Palette.bg.g, Palette.bg.b, 0.86)
+        radius: Theme.radius
+        color: Qt.rgba(Theme.bg.r, Theme.bg.g, Theme.bg.b, 0.86)
         border.width: 1
-        border.color: Palette.stroke
+        border.color: Theme.stroke
 
         // Drag area: whole top band behind the tab/button strip
         MouseArea {
@@ -81,7 +86,7 @@ Window {
                       topMargin: 14; leftMargin: 14; rightMargin: 14 }
             height: 36
             radius: 8
-            color: Palette.dark ? Qt.rgba(1,1,1,0.06) : Qt.rgba(0,0,0,0.036)
+            color: Theme.dark ? Qt.rgba(1,1,1,0.06) : Qt.rgba(0,0,0,0.036)
 
             Row {
                 anchors { right: parent.right; top: parent.top; margins: 4 }
@@ -106,7 +111,7 @@ Window {
             anchors { left: parent.left; right: parent.right; top: topStrip.bottom
                       topMargin: 14; leftMargin: 14; rightMargin: 14 }
             height: 1
-            color: Palette.dark ? Qt.rgba(1,1,1,0.10) : Qt.rgba(0,0,0,0.06)
+            color: Theme.dark ? Qt.rgba(1,1,1,0.10) : Qt.rgba(0,0,0,0.06)
         }
 
         // Two-column card grid (filtered by active tab)
@@ -117,14 +122,15 @@ Window {
                 bottom: statusBar.top
                 topMargin: 24; leftMargin: 14; rightMargin: 14; bottomMargin: 6
             }
-            cellWidth:  (width + Palette.gap) / 2
-            cellHeight: Palette.cardH + Palette.gap
+            cellWidth:  Math.floor((width + Theme.gap) / 2)
+            cellHeight: Theme.cardH + Theme.gap
             clip: true
             interactive: contentHeight > height
             model: root.activeTab === 0 ? root.editorModel : root.toolsModel
+
             delegate: Card {
-                width: content.cellWidth - Palette.gap
-                height: Palette.cardH
+                width: content.cellWidth - Theme.gap
+                height: Theme.cardH
                 item: modelData
                 onClicked: {
                     if (modelData.isSkillsManager) {
@@ -145,11 +151,11 @@ Window {
             id: statusBar
             anchors { left: parent.left; right: parent.right; bottom: parent.bottom }
             height: 18
-            color: Palette.dark ? Qt.rgba(1,1,1,0.04) : Qt.rgba(0,0,0,0.024)
+            color: Theme.dark ? Qt.rgba(1,1,1,0.04) : Qt.rgba(0,0,0,0.024)
             Text {
-                anchors { fill: parent; rightMargin: Palette.pad; leftMargin: Palette.pad }
+                anchors { fill: parent; rightMargin: Theme.pad; leftMargin: Theme.pad }
                 text: "v" + app.version
-                color: Palette.sub
+                color: Theme.sub
                 font.pixelSize: 10
                 horizontalAlignment: Text.AlignRight
                 verticalAlignment: Text.AlignVCenter
