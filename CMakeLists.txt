@@ -1,5 +1,11 @@
 cmake_minimum_required(VERSION 3.21)
 
+# These must be set BEFORE qt_add_executable so the target property is captured
+# at creation time; setting them later is a no-op.
+set(CMAKE_AUTOMOC ON)
+set(CMAKE_AUTORCC ON)
+set(CMAKE_AUTOUIC ON)
+
 project(Ua
     VERSION 2.0.0
     DESCRIPTION "Ua Toolbox - cross-platform AI tool prompt installer"
@@ -131,10 +137,9 @@ qt_add_qml_module(Ua
         qml/theme/Theme.qml
 )
 
-# Embedded resources (prompts, skills, logos, icon). We ship a .qrc file so
-# aliases let us keep the original on-disk layout (Ua/icons/, Ua/skills/, …)
-# while QML/code sees stable paths like qrc:/logos/claude.svg.
-set(CMAKE_AUTORCC ON)
+# Embedded resources: prompts, skills, logos, icon. AUTORCC (enabled at the
+# top of this file) picks up the .qrc file and generates qrc_resources.cpp
+# which gets auto-added to the target's compile list.
 target_sources(Ua PRIVATE resources.qrc)
 
 target_include_directories(Ua PRIVATE

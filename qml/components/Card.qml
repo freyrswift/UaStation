@@ -43,6 +43,8 @@ Rectangle {
             visible: root.item && root.item.logo && root.item.logo !== ""
             fillMode: Image.PreserveAspectFit
             smooth: true
+            // Rasterise SVG at a comfortable size so scaling stays crisp
+            sourceSize: Qt.size(64, 64)
         }
         IconGlyph {
             anchors.centerIn: parent
