@@ -1,0 +1,57 @@
+<!DOCTYPE RCC>
+<RCC version="1.0">
+  <qresource prefix="/">
+    <!-- App icon (ICO; Qt's QImageReader decodes it) -->
+    <file alias="icons/Ua.ico">Ua/Ua.ico</file>
+    <file alias="icons/Ua.png">Ua/Ua.ico</file>
+
+    <!-- Shared prompt (lives in the user's writable prompts/ at runtime via Prompts::extractEmbedded) -->
+    <file alias="prompts/Ua.md">prompts/Ua.md</file>
+
+    <!-- SVG logos (currently we only expose claude + deepseek; the rest stay on disk for later) -->
+    <file alias="logos/claude.svg">Ua/icons/claudecode-color.svg</file>
+    <file alias="logos/deepseek.svg">Ua/icons/deepseek-color.svg</file>
+  </qresource>
+  <qresource prefix="/skills">
+    <file alias="ai-llm-security/SKILL.md">Ua/skills/ai-llm-security/SKILL.md</file>
+    <file alias="apk-reverse/SKILL.md">Ua/skills/apk-reverse/SKILL.md</file>
+    <file alias="apkseep/SKILL.md">Ua/skills/apkseep/SKILL.md</file>
+    <file alias="cheat-engine/SKILL.md">Ua/skills/cheat-engine/SKILL.md</file>
+    <file alias="client-license-validation-bypass/SKILL.md">Ua/skills/client-license-validation-bypass/SKILL.md</file>
+    <file alias="dma-attack/SKILL.md">Ua/skills/dma-attack/SKILL.md</file>
+    <file alias="exploit-development/SKILL.md">Ua/skills/exploit-development/SKILL.md</file>
+    <file alias="ida-reverse/SKILL.md">Ua/skills/ida-reverse/SKILL.md</file>
+    <file alias="malware-analysis/SKILL.md">Ua/skills/malware-analysis/SKILL.md</file>
+    <file alias="mcp-js-reverse-playbook/SKILL.md">Ua/skills/mcp-js-reverse-playbook/SKILL.md</file>
+    <file alias="mobile-security/SKILL.md">Ua/skills/mobile-security/SKILL.md</file>
+    <file alias="process-injection-detect/SKILL.md">Ua/skills/process-injection-detect/SKILL.md</file>
+    <file alias="radare2/SKILL.md">Ua/skills/radare2/SKILL.md</file>
+    <file alias="re-angr/SKILL.md">Ua/skills/re-angr/SKILL.md</file>
+    <file alias="re-anti-cheat/SKILL.md">Ua/skills/re-anti-cheat/SKILL.md</file>
+    <file alias="re-console/SKILL.md">Ua/skills/re-console/SKILL.md</file>
+    <file alias="re-crash-triage/SKILL.md">Ua/skills/re-crash-triage/SKILL.md</file>
+    <file alias="re-deobfuscate/SKILL.md">Ua/skills/re-deobfuscate/SKILL.md</file>
+    <file alias="re-drm/SKILL.md">Ua/skills/re-drm/SKILL.md</file>
+    <file alias="red-team-ops/SKILL.md">Ua/skills/red-team-ops/SKILL.md</file>
+    <file alias="re-ebpf/SKILL.md">Ua/skills/re-ebpf/SKILL.md</file>
+    <file alias="re-evasion/SKILL.md">Ua/skills/re-evasion/SKILL.md</file>
+    <file alias="re-exploit/SKILL.md">Ua/skills/re-exploit/SKILL.md</file>
+    <file alias="re-frida/SKILL.md">Ua/skills/re-frida/SKILL.md</file>
+    <file alias="re-fuzzing/SKILL.md">Ua/skills/re-fuzzing/SKILL.md</file>
+    <file alias="re-game/SKILL.md">Ua/skills/re-game/SKILL.md</file>
+    <file alias="re-hypervisor/SKILL.md">Ua/skills/re-hypervisor/SKILL.md</file>
+    <file alias="re-kernel/SKILL.md">Ua/skills/re-kernel/SKILL.md</file>
+    <file alias="re-keygen/SKILL.md">Ua/skills/re-keygen/SKILL.md</file>
+    <file alias="re-license/SKILL.md">Ua/skills/re-license/SKILL.md</file>
+    <file alias="re-packer-id/SKILL.md">Ua/skills/re-packer-id/SKILL.md</file>
+    <file alias="re-patching/SKILL.md">Ua/skills/re-patching/SKILL.md</file>
+    <file alias="re-pwn/SKILL.md">Ua/skills/re-pwn/SKILL.md</file>
+    <file alias="re-shellcode/SKILL.md">Ua/skills/re-shellcode/SKILL.md</file>
+    <file alias="re-unpack/SKILL.md">Ua/skills/re-unpack/SKILL.md</file>
+    <file alias="reverse-engineering/SKILL.md">Ua/skills/reverse-engineering/SKILL.md</file>
+    <file alias="softseep/SKILL.md">Ua/skills/softseep/SKILL.md</file>
+    <file alias="threat-hunting/SKILL.md">Ua/skills/threat-hunting/SKILL.md</file>
+    <file alias="unity-game-research/SKILL.md">Ua/skills/unity-game-research/SKILL.md</file>
+    <file alias="web-security/SKILL.md">Ua/skills/web-security/SKILL.md</file>
+  </qresource>
+</RCC>

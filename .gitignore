@@ -1,25 +1,31 @@
-﻿# Build output
+﻿# ---- Legacy Win32 build output ----
 Ua/x64/
 Ua/*.user
 Ua/*.vcxproj.filters
-
-# Backups
 Ua/backup-before-split/
 Ua/backup-ui-split/
 Ua/icon-build/
-
-# Temp
-*.pdb
-*.iobj
-*.ipdb
-*.log
-*.tmp
-
-# VS IDE
-.vs/
-
-# Build intermediates
 Ua/Ua/
+x64/
+
+# ---- Qt / CMake build output ----
+build/
+build-*/
+CMakeCache.txt
+CMakeFiles/
+cmake_install.cmake
+install_manifest.txt
+.cmake/
+qt-install.log
+
+# ---- CMake / IDE workspace ----
+.vs/
+.vscode/
+CMakeUserPresets.json
+*.swp
+
+# ---- Compilation intermediates ----
+*.pdb
 *.obj
 *.res
 *.tlog
@@ -28,3 +34,5 @@ Ua/Ua/
 *.ipdb
 *.lastbuildstate
 *.FileListAbsolute.txt
+*.log
+*.tmp

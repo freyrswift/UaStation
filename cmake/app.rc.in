@@ -1,0 +1,4 @@
+// app.rc - Windows resource file for the Ua.exe icon.
+// Processed by CMake configure_file to drop in the absolute path at build time.
+#include <windows.h>
+IDI_APPLICATION ICON "@APP_ICON_WIN@"
