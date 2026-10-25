@@ -1,12 +1,13 @@
 import QtQuick
 
-// Icon glyph using the system Fluent / MDL2 font.
-// On Windows 11 "Segoe Fluent Icons" ships; Windows 10 falls back to
-// "Segoe MDL2 Assets" via the OS font substitution map. Linux/macOS have
-// no counterpart yet (see cross-platform-glyphs TODO in main.cpp).
+// Icon glyph using Segoe MDL2 Assets.
+// Shipped on every supported Windows 10/11; Windows 11's "Segoe Fluent Icons"
+// shares the same codepoints (U+E700..E9F8) so this works on both. On
+// Linux/macOS we currently fall back to the system font (glyphs will be blank
+// until a Fluent-compatible .ttf is bundled; see TODO in main.cpp).
 Text {
     property real pixelSize: 14
-    font.family: "Segoe Fluent Icons"
+    font.family: "Segoe MDL2 Assets"
     font.pixelSize: pixelSize
     verticalAlignment: Text.AlignVCenter
     horizontalAlignment: Text.AlignHCenter

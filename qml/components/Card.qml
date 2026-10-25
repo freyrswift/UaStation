@@ -40,10 +40,9 @@ Rectangle {
             anchors.fill: parent
             anchors.margins: root.item && root.item.framed ? 0 : 4
             source: root.item ? (root.item.logo || "") : ""
-            visible: root.item && root.item.logo !== ""
+            visible: root.item && root.item.logo && root.item.logo !== ""
             fillMode: Image.PreserveAspectFit
             smooth: true
-            asynchronous: true
         }
         IconGlyph {
             anchors.centerIn: parent
@@ -64,6 +63,16 @@ Rectangle {
             border.width: 2
             border.color: root.color
         }
+    }
+
+    // Chevron right (declared BEFORE the text Column so anchoring resolves properly)
+    IconGlyph {
+        id: chevron
+        anchors { right: parent.right; verticalCenter: parent.verticalCenter; rightMargin: 10 }
+        width: 16; height: 16
+        text: ""
+        pixelSize: 11
+        color: ma.containsMouse ? Palette.text : Palette.sub
     }
 
     // Name + sub
@@ -98,15 +107,5 @@ Rectangle {
             font.pixelSize: 11
             elide: Text.ElideRight
         }
-    }
-
-    // Chevron right
-    IconGlyph {
-        id: chevron
-        anchors { right: parent.right; verticalCenter: parent.verticalCenter; rightMargin: 10 }
-        width: 16; height: 16
-        text: ""
-        pixelSize: 11
-        color: ma.containsMouse ? Palette.text : Palette.sub
     }
 }
