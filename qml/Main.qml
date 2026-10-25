@@ -64,7 +64,11 @@ Window {
         id: shell
         anchors.fill: parent
         radius: Theme.radius
-        color: Qt.rgba(Theme.bg.r, Theme.bg.g, Theme.bg.b, 0.86)
+        // Fully opaque so Linux / macOS / Win10 (no Mica) don't bleed through.
+        // On Win11 the DWM Mica tint is applied *behind* the window; a solid
+        // body still reads as Mica because the DWM paints the window chrome
+        // area outside our client rect.
+        color: Theme.bg
         border.width: 1
         border.color: Theme.stroke
 
