@@ -1,17 +1,21 @@
 import QtQuick
 import UaApp
 
+// Rounded card: 28×28 logo/glyph tile, title + sub stacked, chevron on
+// the right. Matches ui-main.cpp DrawCard().
 Rectangle {
     id: root
     radius: 8
     border.width: 1
-    border.color: Palette.stroke
-    color: ma.containsMouse ? Palette.surface : Palette.surfaceAlt
+    border.color: Palette.dark ? Qt.rgba(1,1,1, ma.containsMouse ? 0.18 : 0.12)
+                               : Qt.rgba(0,0,0, (ma.containsMouse ? 0.18 : 0.12) * 0.6)
+    color: Palette.dark ? Qt.rgba(1,1,1, ma.containsMouse ? 0.10 : 0.05)
+                        : Qt.rgba(0,0,0, (ma.containsMouse ? 0.10 : 0.05) * 0.6)
 
     property var item: ({})
     signal clicked()
 
-    Behavior on color { ColorAnimation { duration: 100 } }
+    Behavior on color { ColorAnimation { duration: 90 } }
 
     MouseArea {
         id: ma
@@ -21,73 +25,88 @@ Rectangle {
         onClicked: root.clicked()
     }
 
-    Row {
-        anchors { left: parent.left; verticalCenter: parent.verticalCenter; leftMargin: 10 }
-        spacing: 10
-
-        // Logo tile (SVG) or glyph tile
-        Rectangle {
-            width: 32; height: 32; radius: 6
-            color: root.item && root.item.framed ? "transparent"
-                                                  : (Palette.dark ? "#3A3A3A" : "#EAEAEA")
-            visible: !!(root.item && (root.item.logo || root.item.glyph))
-
-            Image {
-                anchors.fill: parent
-                anchors.margins: 1
-                visible: root.item && root.item.logo !== ""
-                source: root.item ? root.item.logo : ""
-                fillMode: Image.PreserveAspectFit
-                smooth: true
-            }
-            IconGlyph {
-                anchors.centerIn: parent
-                visible: root.item && root.item.logo === "" && root.item.glyph !== ""
-                text: root.item ? String.fromCharCode(parseInt(root.item.glyph || "0", 16)) : ""
-                pixelSize: 18
-                color: Palette.text
-            }
+    // Logo/glyph tile
+    Rectangle {
+        id: tile
+        anchors { left: parent.left; leftMargin: 10; verticalCenter: parent.verticalCenter }
+        width: 28; height: 28
+        radius: 6
+        color: {
+            if (root.item && root.item.framed) return "transparent"
+            return Palette.dark ? Qt.rgba(1,1,1,0.08) : Qt.rgba(0,0,0,0.048)
         }
 
-        Column {
-            anchors.verticalCenter: parent.verticalCenter
-            spacing: 2
-            Text {
-                text: root.item ? root.item.name : ""
-                color: Palette.text
-                font.pixelSize: 13
-                font.bold: true
-            }
-            Text {
-                text: {
-                    if (!root.item) return ""
-                    if (root.item.sub && root.item.sub !== "") return root.item.sub
-                    if (!root.item.supported) return Strings.t(Strings.NotSupported)
-                    if (!root.item.detected)  return Strings.t(Strings.ToolNotFound)
-                    switch (root.item.state) {
-                    case 1:  return Strings.t(Strings.Injected)
-                    case 2:  return Strings.t(Strings.FileHasContent)
-                    default: return Strings.t(Strings.NotInjected)
-                    }
-                }
-                color: Palette.sub
-                font.pixelSize: 11
-            }
+        Image {
+            anchors.fill: parent
+            anchors.margins: root.item && root.item.framed ? 0 : 4
+            source: root.item ? (root.item.logo || "") : ""
+            visible: root.item && root.item.logo !== ""
+            fillMode: Image.PreserveAspectFit
+            smooth: true
+            asynchronous: true
+        }
+        IconGlyph {
+            anchors.centerIn: parent
+            visible: root.item && (!root.item.logo || root.item.logo === "") && root.item.glyph !== ""
+            text: root.item && root.item.glyph
+                  ? String.fromCharCode(parseInt(root.item.glyph, 16))
+                  : ""
+            pixelSize: 15
+            color: Palette.text
+        }
+
+        // "Installed" indicator: green dot at the tile's bottom-right.
+        Rectangle {
+            visible: root.item && root.item.supported && root.item.state === 1
+            width: 10; height: 10; radius: 5
+            anchors { right: parent.right; bottom: parent.bottom; rightMargin: -2; bottomMargin: -2 }
+            color: Palette.green
+            border.width: 2
+            border.color: root.color
         }
     }
 
-    // State dot
-    Rectangle {
-        anchors { right: parent.right; verticalCenter: parent.verticalCenter; rightMargin: 14 }
-        width: 10; height: 10; radius: 5
-        visible: root.item && root.item.supported
-        color: {
-            if (!root.item) return "transparent"
-            switch (root.item.state) {
-            case 1: return Palette.green
-            case 2: return "#F0C000"
-            default: return Palette.dark ? "#555" : "#CCC"
-            }
+    // Name + sub
+    Column {
+        anchors { left: tile.right; leftMargin: 10
+                  right: chevron.left; rightMargin: 8
+                  verticalCenter: parent.verticalCenter }
+        spacing: 2
+        Text {
+            width: parent.width
+            text: root.item ? (root.item.name || "") : ""
+            color: Palette.text
+            font.pixelSize: 13
+            font.bold: true
+            elide: Text.ElideRight
         }
+        Text {
+            width: parent.width
+            visible: text !== ""
+            text: {
+                if (!root.item) return ""
+                if (root.item.sub && root.item.sub !== "") return root.item.sub
+                if (!root.item.supported) return ""
+                if (!root.item.detected)  return Strings.t(Strings.ToolNotFound)
+                switch (root.item.state) {
+                case 1:  return Strings.t(Strings.Injected)
+                case 2:  return Strings.t(Strings.FileHasContent)
+                default: return Strings.t(Strings.NotInjected)
+                }
+            }
+            color: Palette.sub
+            font.pixelSize: 11
+            elide: Text.ElideRight
+        }
+    }
+
+    // Chevron right
+    IconGlyph {
+        id: chevron
+        anchors { right: parent.right; verticalCenter: parent.verticalCenter; rightMargin: 10 }
+        width: 16; height: 16
+        text: ""
+        pixelSize: 11
+        color: ma.containsMouse ? Palette.text : Palette.sub
     }
 }

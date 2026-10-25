@@ -63,67 +63,67 @@ Window {
         border.width: 1
         border.color: Palette.stroke
 
-        // Drag area (behind the title bar)
+        // Drag area: whole top band behind the tab/button strip
         MouseArea {
             anchors { top: parent.top; left: parent.left; right: parent.right }
-            height: 44
+            height: 50
+            z: -1  // Keep below the tab strip so buttons/tabs still get clicks
             onPressed: (ev) => {
                 if (ev.button === Qt.LeftButton) root.startSystemMove()
             }
         }
 
-        // Logo + name
-        Row {
-            anchors { left: parent.left; top: parent.top; margins: 14 }
-            spacing: 10
-            Image {
-                source: "qrc:/icons/Ua.png"
-                sourceSize: Qt.size(28, 28)
-                width: 28; height: 28
+        // Top strip: pill-style tab bar + three window buttons on one row.
+        // Matches the Direct2D DrawTabs: y 14..50, kPad 14 on both sides.
+        Rectangle {
+            id: topStrip
+            anchors { top: parent.top; left: parent.left; right: parent.right
+                      topMargin: 14; leftMargin: 14; rightMargin: 14 }
+            height: 36
+            radius: 8
+            color: Palette.dark ? Qt.rgba(1,1,1,0.06) : Qt.rgba(0,0,0,0.036)
+
+            Row {
+                anchors { right: parent.right; top: parent.top; margins: 4 }
+                spacing: 0
+                TitleButton { glyph: ""; onClicked: root.settingsMenuOpen = !root.settingsMenuOpen }
+                TitleButton { glyph: ""; onClicked: root.visibility = Window.Minimized }
+                TitleButton { glyph: ""; danger: true; onClicked: root.hide() }
             }
-            Column {
-                Text { text: "Ua"; color: Palette.text; font.pixelSize: 16; font.bold: true }
-                Text {
-                    text: Strings.t(Strings.TrayTooltip)
-                    color: Palette.sub
-                    font.pixelSize: 11
-                }
+
+            TabBar {
+                anchors { left: parent.left; verticalCenter: parent.verticalCenter
+                          leftMargin: 4 }
+                anchors.right: parent.right
+                anchors.rightMargin: 3 * 30 + 10 // reserve for the three buttons
+                activeTab: root.activeTab
+                onTabClicked: (i) => root.activeTab = i
             }
         }
 
-        // Title buttons
-        Row {
-            anchors { right: parent.right; top: parent.top; margins: 8 }
-            spacing: 4
-            z: 10
-            TitleButton { glyph: ""; onClicked: root.settingsMenuOpen = !root.settingsMenuOpen }
-            TitleButton { glyph: ""; onClicked: root.visibility = Window.Minimized }
-            TitleButton { glyph: ""; onClicked: root.hide() }
+        // Divider under the tab strip (mirrors the 1-pixel line in DrawTabs)
+        Rectangle {
+            anchors { left: parent.left; right: parent.right; top: topStrip.bottom
+                      topMargin: 14; leftMargin: 14; rightMargin: 14 }
+            height: 1
+            color: Palette.dark ? Qt.rgba(1,1,1,0.10) : Qt.rgba(0,0,0,0.06)
         }
 
-        TabBar {
-            id: tabs
-            anchors { left: parent.left; right: parent.right; top: parent.top; topMargin: 56 }
-            activeTab: root.activeTab
-            onTabClicked: (i) => root.activeTab = i
-        }
-
-        // Card list (filtered by active tab so delegates don't collapse-overlap)
-        ListView {
+        // Two-column card grid (filtered by active tab)
+        GridView {
             id: content
             anchors {
-                top: tabs.bottom
-                left: parent.left
-                right: parent.right
+                top: topStrip.bottom; left: parent.left; right: parent.right
                 bottom: statusBar.top
-                topMargin: 8; leftMargin: 14; rightMargin: 14; bottomMargin: 6
+                topMargin: 24; leftMargin: 14; rightMargin: 14; bottomMargin: 6
             }
-            spacing: Palette.gap
+            cellWidth:  (width + Palette.gap) / 2
+            cellHeight: Palette.cardH + Palette.gap
             clip: true
             interactive: contentHeight > height
             model: root.activeTab === 0 ? root.editorModel : root.toolsModel
             delegate: Card {
-                width: content.width
+                width: content.cellWidth - Palette.gap
                 height: Palette.cardH
                 item: modelData
                 onClicked: {
@@ -140,14 +140,14 @@ Window {
             }
         }
 
-        // Status bar
+        // Status bar: 18px high, subtle tint, right-aligned version
         Rectangle {
             id: statusBar
             anchors { left: parent.left; right: parent.right; bottom: parent.bottom }
-            height: 20
-            color: "transparent"
+            height: 18
+            color: Palette.dark ? Qt.rgba(1,1,1,0.04) : Qt.rgba(0,0,0,0.024)
             Text {
-                anchors { fill: parent; margins: 10 }
+                anchors { fill: parent; rightMargin: Palette.pad; leftMargin: Palette.pad }
                 text: "v" + app.version
                 color: Palette.sub
                 font.pixelSize: 10
