@@ -126,6 +126,28 @@ QVariantList AppController::items()
     return buildItemsSnapshot();
 }
 
+QVariantList AppController::editorItems()
+{
+    QVariantList out;
+    for (const QVariant& v : buildItemsSnapshot()) {
+        if (v.toMap().value(QStringLiteral("group")).toInt() == static_cast<int>(ItemGroup::Editor)) {
+            out.push_back(v);
+        }
+    }
+    return out;
+}
+
+QVariantList AppController::toolsItems()
+{
+    QVariantList out;
+    for (const QVariant& v : buildItemsSnapshot()) {
+        if (v.toMap().value(QStringLiteral("group")).toInt() == static_cast<int>(ItemGroup::Tools)) {
+            out.push_back(v);
+        }
+    }
+    return out;
+}
+
 QVariantList AppController::prompts()
 {
     QVariantList out;

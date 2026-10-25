@@ -17,8 +17,10 @@ namespace ua::core {
 class AppController : public QObject
 {
     Q_OBJECT
-    Q_PROPERTY(QVariantList items    READ items    NOTIFY itemsChanged)
-    Q_PROPERTY(QVariantList prompts  READ prompts  NOTIFY promptsChanged)
+    Q_PROPERTY(QVariantList items       READ items       NOTIFY itemsChanged)
+    Q_PROPERTY(QVariantList editorItems READ editorItems NOTIFY itemsChanged)
+    Q_PROPERTY(QVariantList toolsItems  READ toolsItems  NOTIFY itemsChanged)
+    Q_PROPERTY(QVariantList prompts     READ prompts     NOTIFY promptsChanged)
     Q_PROPERTY(QString version READ version CONSTANT)
 
 public:
@@ -30,6 +32,8 @@ public:
     void attachMainWindow(QWindow* window);
 
     QVariantList items();
+    QVariantList editorItems();
+    QVariantList toolsItems();
     QVariantList prompts();
     QString version() const;
 

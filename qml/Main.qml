@@ -30,12 +30,16 @@ Window {
     property bool   settingsMenuOpen: false
     property bool   disclaimerOpen: !Settings.disclaimerAccepted
     property string toastText: ""
-    property var    itemsSnapshot: app.items
+    property var    editorModel: app.editorItems
+    property var    toolsModel:  app.toolsItems
     property var    promptsSnapshot: app.prompts
 
     Connections {
         target: app
-        function onItemsChanged()    { root.itemsSnapshot = app.items }
+        function onItemsChanged() {
+            root.editorModel = app.editorItems
+            root.toolsModel  = app.toolsItems
+        }
         function onPromptsChanged()  { root.promptsSnapshot = app.prompts }
         function onToast(text)       { root.showToast(text) }
         function onErrorRaised(text) { root.showToast(text) }
@@ -104,7 +108,7 @@ Window {
             onTabClicked: (i) => root.activeTab = i
         }
 
-        // Card list
+        // Card list (filtered by active tab so delegates don't collapse-overlap)
         ListView {
             id: content
             anchors {
@@ -117,12 +121,11 @@ Window {
             spacing: Palette.gap
             clip: true
             interactive: contentHeight > height
-            model: root.itemsSnapshot
+            model: root.activeTab === 0 ? root.editorModel : root.toolsModel
             delegate: Card {
                 width: content.width
+                height: Palette.cardH
                 item: modelData
-                visible: modelData.group === root.activeTab
-                height: visible ? Palette.cardH : 0
                 onClicked: {
                     if (modelData.isSkillsManager) {
                         root.skillManagerOpen = true
