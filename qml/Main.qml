@@ -13,6 +13,15 @@ Window {
     visible: true
     title: "Ua Toolbox"
 
+    // Qt would otherwise terminate the process on close; the tray keeps us alive.
+    onClosing: (close) => { close.accepted = false; root.hide() }
+
+    // Tray asked to come back
+    Connections {
+        target: app
+        function onShowMainWindowRequested() { root.show(); root.raise(); root.requestActivate() }
+    }
+
     // ---------- state ----------
     property int    activeTab: 0
     property string openDialogItemId: ""

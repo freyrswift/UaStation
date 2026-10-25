@@ -7,19 +7,88 @@
 #include "paths.h"
 #include "prompts.h"
 #include "skills.h"
+#include "strings.h"
 
+#include <QAction>
 #include <QCoreApplication>
 #include <QDesktopServices>
 #include <QDir>
 #include <QFileInfo>
+#include <QGuiApplication>
+#include <QIcon>
+#include <QMenu>
+#include <QSystemTrayIcon>
 #include <QUrl>
 #include <QVariantMap>
+#include <QWindow>
 
 namespace ua::core {
 
 AppController::AppController(QObject* parent) : QObject(parent)
 {
     Prompts::extractEmbedded();
+    setupTray();
+}
+
+AppController::~AppController() = default;
+
+void AppController::attachMainWindow(QWindow* window)
+{
+    m_mainWindow = window;
+    if (!window) return;
+    // Intercept the X button so it hides to tray instead of closing the app.
+    connect(window, &QWindow::visibleChanged, this, [this](bool v) {
+        if (!v && m_tray && m_tray->isVisible()) {
+            // Window got hidden: don't quit Qt, keep the tray alive.
+        }
+    });
+}
+
+void AppController::showMainWindow()
+{
+    if (!m_mainWindow) return;
+    m_mainWindow->show();
+    m_mainWindow->raise();
+    m_mainWindow->requestActivate();
+    emit showMainWindowRequested();
+}
+
+void AppController::setupTray()
+{
+    if (!QSystemTrayIcon::isSystemTrayAvailable()) return;
+
+    m_tray = new QSystemTrayIcon(this);
+    m_tray->setIcon(QIcon(QStringLiteral(":/icons/Ua.ico")));
+    m_tray->setToolTip(Strings::instance()->get(Strings::TrayTooltip));
+
+    m_trayMenu = new QMenu();
+    QAction* showAction = m_trayMenu->addAction(Strings::instance()->get(Strings::TrayShow));
+    m_trayMenu->addSeparator();
+    QAction* exitAction = m_trayMenu->addAction(Strings::instance()->get(Strings::Exit));
+
+    connect(showAction, &QAction::triggered, this, &AppController::showMainWindow);
+    connect(exitAction, &QAction::triggered, this, &AppController::quit);
+
+    connect(m_tray, &QSystemTrayIcon::activated,
+            this, [this](QSystemTrayIcon::ActivationReason reason) {
+        if (reason == QSystemTrayIcon::Trigger || reason == QSystemTrayIcon::DoubleClick) {
+            showMainWindow();
+        }
+    });
+
+    // Keep the tooltip in sync with language switches.
+    connect(Strings::instance(), &Strings::langChanged, this, [this, showAction, exitAction]() {
+        if (m_tray)      m_tray->setToolTip(Strings::instance()->get(Strings::TrayTooltip));
+        if (showAction)  showAction->setText(Strings::instance()->get(Strings::TrayShow));
+        if (exitAction)  exitAction->setText(Strings::instance()->get(Strings::Exit));
+    });
+
+    m_tray->setContextMenu(m_trayMenu);
+    m_tray->show();
+
+    // Qt otherwise quits when the last visible window closes; we want to stay
+    // alive in the tray.
+    QGuiApplication::setQuitOnLastWindowClosed(false);
 }
 
 QString AppController::version() const

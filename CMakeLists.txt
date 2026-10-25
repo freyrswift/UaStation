@@ -30,6 +30,7 @@ find_package(Qt6 6.5 REQUIRED COMPONENTS
     QuickControls2
     Svg
     Network
+    Widgets      # QSystemTrayIcon + QMenu for the tray context menu
 )
 
 qt_standard_project_setup(REQUIRES 6.5)
@@ -150,6 +151,7 @@ target_link_libraries(Ua PRIVATE
     Qt6::QuickControls2
     Qt6::Svg
     Qt6::Network
+    Qt6::Widgets
 )
 
 target_compile_definitions(Ua PRIVATE

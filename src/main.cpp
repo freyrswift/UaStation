@@ -4,7 +4,7 @@
 // Single-instance check and frameless/round-corner window hints live here;
 // Mica / vibrancy / tray / autostart are provided by platform/* modules.
 
-#include <QGuiApplication>
+#include <QApplication>
 #include <QQmlApplicationEngine>
 #include <QQmlContext>
 #include <QQuickStyle>
@@ -25,14 +25,14 @@ void applyWindowEffects(QWindow* w, bool micaEnabled);
 
 int main(int argc, char* argv[])
 {
-    QGuiApplication::setApplicationName(QStringLiteral("Ua"));
-    QGuiApplication::setApplicationDisplayName(QStringLiteral("Ua Toolbox"));
-    QGuiApplication::setOrganizationName(QStringLiteral("Ua"));
-    QGuiApplication::setOrganizationDomain(QStringLiteral("utlra.cc"));
-    QGuiApplication::setApplicationVersion(QStringLiteral(UA_VERSION_STR));
+    QApplication::setApplicationName(QStringLiteral("Ua"));
+    QApplication::setApplicationDisplayName(QStringLiteral("Ua Toolbox"));
+    QApplication::setOrganizationName(QStringLiteral("Ua"));
+    QApplication::setOrganizationDomain(QStringLiteral("utlra.cc"));
+    QApplication::setApplicationVersion(QStringLiteral(UA_VERSION_STR));
 
-    QGuiApplication app(argc, argv);
-    app.setWindowIcon(QIcon(QStringLiteral(":/icons/Ua.png")));
+    QApplication app(argc, argv);
+    app.setWindowIcon(QIcon(QStringLiteral(":/icons/Ua.ico")));
 
     // Prefer the Fusion-based Basic style so our fully custom QML doesn't inherit
     // platform widget chrome; everything is painted by us.
@@ -64,9 +64,11 @@ int main(int argc, char* argv[])
         return 1;
     }
 
-    // Apply Mica (Win11) / vibrancy (macOS) / plain color (Linux) to the main window.
+    // Apply Mica (Win11) / vibrancy (macOS) / plain color (Linux) and give the
+    // controller a handle so the tray can bring the window back.
     if (auto* window = qobject_cast<QWindow*>(engine.rootObjects().first())) {
         ua::platform::applyWindowEffects(window, /*micaEnabled=*/true);
+        controller.attachMainWindow(window);
     }
 
     return app.exec();

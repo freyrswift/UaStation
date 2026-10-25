@@ -6,6 +6,12 @@
 #include <QString>
 #include <QVariantList>
 
+QT_BEGIN_NAMESPACE
+class QSystemTrayIcon;
+class QMenu;
+class QWindow;
+QT_END_NAMESPACE
+
 namespace ua::core {
 
 class AppController : public QObject
@@ -17,6 +23,11 @@ class AppController : public QObject
 
 public:
     explicit AppController(QObject* parent = nullptr);
+    ~AppController() override;
+
+    // Called from main.cpp once the main QML window is created so Close->Hide
+    // (and tray left-click->show) can target it.
+    void attachMainWindow(QWindow* window);
 
     QVariantList items();
     QVariantList prompts();
@@ -45,9 +56,16 @@ signals:
     void promptsChanged();
     void toast(const QString& text);
     void errorRaised(const QString& text);
+    void showMainWindowRequested();
 
 private:
     QVariantList buildItemsSnapshot() const;
+    void setupTray();
+    void showMainWindow();
+
+    QSystemTrayIcon* m_tray = nullptr;
+    QMenu*           m_trayMenu = nullptr;
+    QWindow*         m_mainWindow = nullptr;
 };
 
 } // namespace ua::core
