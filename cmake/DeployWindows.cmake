@@ -17,9 +17,18 @@ add_custom_command(TARGET Ua POST_BUILD
             --release
             --no-compiler-runtime
             --no-system-d3d-compiler
+            --no-opengl-sw          # drops the 20 MB opengl32sw.dll fallback
+            --no-translations       # we ship our own CN/EN table in strings.cpp
+            --no-quick-import       # QML module is already linked statically
+            --no-system-dxc-compiler # skips dxcompiler.dll (~14 MB)
             --qmldir "${CMAKE_SOURCE_DIR}/qml"
             "$<TARGET_FILE:Ua>"
-    COMMENT "Deploying Qt runtime next to Ua.exe"
+    COMMAND ${CMAKE_COMMAND} -E remove -f
+            "$<TARGET_FILE_DIR:Ua>/dxcompiler.dll"
+            "$<TARGET_FILE_DIR:Ua>/dxil.dll"
+    COMMAND ${CMAKE_COMMAND} -E rm -rf
+            "$<TARGET_FILE_DIR:Ua>/qmltooling"
+    COMMENT "Deploying slim Qt runtime next to Ua.exe"
     VERBATIM
 )
 
