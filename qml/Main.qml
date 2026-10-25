@@ -122,7 +122,9 @@ Window {
                 bottom: statusBar.top
                 topMargin: 24; leftMargin: 14; rightMargin: 14; bottomMargin: 6
             }
-            cellWidth:  Math.floor((width + Theme.gap) / 2)
+            // GridView fits Math.floor(width / cellWidth) columns, so we must
+            // make cellWidth × 2 <= width or the second column wraps to a new row.
+            cellWidth:  Math.floor(width / 2)
             cellHeight: Theme.cardH + Theme.gap
             clip: true
             interactive: contentHeight > height
