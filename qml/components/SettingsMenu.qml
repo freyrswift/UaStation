@@ -3,8 +3,8 @@ import UaApp
 
 Rectangle {
     id: root
-    width: 196
-    radius: 8
+    width: 232
+    radius: 10
     border.width: 1
     border.color: Theme.stroke
     color: Theme.surface
@@ -20,7 +20,6 @@ Rectangle {
     Behavior on opacity { NumberAnimation { duration: 120 } }
     Behavior on scale   { NumberAnimation { duration: 120; easing.type: Easing.OutCubic } }
 
-    // Click-outside to close
     MouseArea {
         id: outside
         parent: root.parent
@@ -35,150 +34,228 @@ Rectangle {
     Column {
         id: layout
         anchors { left: parent.left; right: parent.right; top: parent.top; margins: 6 }
-        spacing: 2
+        spacing: 4
 
-        // Theme (radio: three mutually-exclusive)
-        MenuRow {
-            label: Strings.t(Strings.ThemeSystem); glyph: ""
-            selected: Settings.themeMode === 0
-            onTriggered: { Settings.themeMode = 0 }
+        // Theme: segmented control
+        SegmentedRow {
+            label: Strings.t(Strings.Theme)
+            glyph: ""
+            options: [
+                { text: Strings.t(Strings.ThemeSystem), glyph: "" },
+                { text: Strings.t(Strings.ThemeDark),   glyph: "" },
+                { text: Strings.t(Strings.ThemeLight),  glyph: "" },
+            ]
+            selectedIndex: Settings.themeMode
+            onSelect: (i) => { Settings.themeMode = i }
         }
-        MenuRow {
-            label: Strings.t(Strings.ThemeDark); glyph: ""
-            selected: Settings.themeMode === 1
-            onTriggered: { Settings.themeMode = 1 }
+
+        // Language: segmented control
+        SegmentedRow {
+            label: Strings.t(Strings.Lang)
+            glyph: ""
+            options: [
+                { text: "中文",    glyph: "" },
+                { text: "English", glyph: "" },
+            ]
+            selectedIndex: Strings.lang
+            onSelect: (i) => { Strings.lang = i }
         }
-        MenuRow {
-            label: Strings.t(Strings.ThemeLight); glyph: ""
-            selected: Settings.themeMode === 2
-            onTriggered: { Settings.themeMode = 2 }
-        }
+
         Separator {}
 
-        // Language (radio: two)
-        MenuRow {
-            label: "中文"; glyph: ""
-            selected: Strings.lang === 0
-            onTriggered: { Strings.lang = 0 }
-        }
-        MenuRow {
-            label: "English"; glyph: ""
-            selected: Strings.lang === 1
-            onTriggered: { Strings.lang = 1 }
-        }
-        Separator {}
-
-        // Toggles (show on/off state)
-        MenuRow {
+        // Toggles
+        ToggleRow {
             label: Strings.t(Strings.Topmost); glyph: ""
             toggled: Settings.topmost
-            onTriggered: { Settings.topmost = !Settings.topmost }
+            onToggle: { Settings.topmost = !Settings.topmost }
         }
-        MenuRow {
+        ToggleRow {
             label: Strings.t(Strings.Autostart); glyph: ""
             toggled: Settings.autostart
-            onTriggered: { Settings.autostart = !Settings.autostart }
+            onToggle: { Settings.autostart = !Settings.autostart }
         }
+
         Separator {}
 
         // Actions
-        MenuRow {
+        ActionRow {
             label: Updater.checking ? Strings.t(Strings.UpdateCheck) : Strings.t(Strings.CheckUpdate)
             glyph: ""
             onTriggered: { Updater.check(); root.closeRequested() }
         }
-        MenuRow {
+        ActionRow {
             label: Strings.t(Strings.CleanData); glyph: ""
-            onTriggered: { app.showToast("TODO: clean data"); root.closeRequested() }
+            onTriggered: { app.showToast("TODO"); root.closeRequested() }
         }
-        MenuRow {
+        ActionRow {
             label: Strings.t(Strings.About); glyph: ""
             onTriggered: root.aboutRequested()
         }
-        MenuRow {
+        ActionRow {
             label: Strings.t(Strings.Exit); glyph: ""
+            danger: true
             onTriggered: app.quit()
         }
     }
 
-    // ---- inline components ----
+    // =====================================================================
+    // Row components
+    // =====================================================================
 
-    component MenuRow : Rectangle {
-        id: row
+    // Row with a group label + inline segmented picker on the right
+    component SegmentedRow : Item {
+        id: segRow
         property string label
         property string glyph
-        property bool   selected: false   // single-of-N indicator (radio-like)
-        property bool   toggled:  false   // boolean on/off indicator
+        property var    options: []
+        property int    selectedIndex: 0
+        signal select(int index)
+
+        width: parent.width
+        implicitHeight: 54
+
+        IconGlyph {
+            anchors { left: parent.left; top: parent.top; margins: 10; topMargin: 6 }
+            text: segRow.glyph; pixelSize: 13; color: Theme.sub
+        }
+        Text {
+            anchors { left: parent.left; top: parent.top; leftMargin: 34; topMargin: 4 }
+            text: segRow.label
+            color: Theme.sub
+            font.pixelSize: 11
+        }
+
+        Row {
+            anchors { left: parent.left; right: parent.right; bottom: parent.bottom
+                      leftMargin: 10; rightMargin: 10; bottomMargin: 6 }
+            spacing: 0
+            Repeater {
+                model: segRow.options
+                delegate: Rectangle {
+                    width: (parent.width - 0) / segRow.options.length
+                    height: 26
+                    radius: 5
+                    color: index === segRow.selectedIndex
+                           ? Theme.accent
+                           : (segMa.containsMouse
+                              ? (Theme.dark ? Qt.rgba(1,1,1,0.08) : Qt.rgba(0,0,0,0.04))
+                              : "transparent")
+                    border.width: 1
+                    border.color: index === segRow.selectedIndex ? Theme.accent : Theme.stroke
+
+                    Row {
+                        anchors.centerIn: parent
+                        spacing: 4
+                        IconGlyph {
+                            visible: modelData.glyph && modelData.glyph !== ""
+                            text: modelData.glyph; pixelSize: 11
+                            color: index === segRow.selectedIndex ? "#1A1A1A" : Theme.text
+                            anchors.verticalCenter: parent.verticalCenter
+                        }
+                        Text {
+                            text: modelData.text
+                            color: index === segRow.selectedIndex ? "#1A1A1A" : Theme.text
+                            font.pixelSize: 11
+                            font.bold: index === segRow.selectedIndex
+                            anchors.verticalCenter: parent.verticalCenter
+                        }
+                    }
+                    MouseArea {
+                        id: segMa
+                        anchors.fill: parent
+                        hoverEnabled: true
+                        cursorShape: Qt.PointingHandCursor
+                        onClicked: segRow.select(index)
+                    }
+                }
+            }
+        }
+    }
+
+    // Row with an on/off switch on the right
+    component ToggleRow : Rectangle {
+        id: tRow
+        property string label
+        property string glyph
+        property bool   toggled: false
+        signal toggle()
+
+        width: parent.width
+        height: 32
+        radius: 5
+        color: tMa.pressed ? (Theme.dark ? Qt.rgba(1,1,1,0.14) : Qt.rgba(0,0,0,0.08))
+             : tMa.containsMouse ? (Theme.dark ? Qt.rgba(1,1,1,0.06) : Qt.rgba(0,0,0,0.03))
+             : "transparent"
+
+        IconGlyph {
+            anchors { left: parent.left; verticalCenter: parent.verticalCenter; leftMargin: 10 }
+            text: tRow.glyph; pixelSize: 13; color: Theme.text
+        }
+        Text {
+            anchors { left: parent.left; verticalCenter: parent.verticalCenter; leftMargin: 34
+                      right: pill.left; rightMargin: 8 }
+            text: tRow.label; color: Theme.text; font.pixelSize: 12
+            elide: Text.ElideRight
+        }
+        // Fluent switch
+        Rectangle {
+            id: pill
+            anchors { right: parent.right; verticalCenter: parent.verticalCenter; rightMargin: 10 }
+            width: 32; height: 16; radius: 8
+            color: tRow.toggled ? Theme.accent
+                                : (Theme.dark ? "#464646" : "#D0D0D0")
+            Rectangle {
+                width: 10; height: 10; radius: 5
+                anchors.verticalCenter: parent.verticalCenter
+                x: tRow.toggled ? parent.width - width - 3 : 3
+                color: tRow.toggled ? "#1A1A1A" : "white"
+                Behavior on x { NumberAnimation { duration: 150; easing.type: Easing.OutCubic } }
+            }
+        }
+
+        MouseArea {
+            id: tMa
+            anchors.fill: parent
+            hoverEnabled: true
+            cursorShape: Qt.PointingHandCursor
+            onClicked: tRow.toggle()
+        }
+    }
+
+    // Plain action row (triggers once on click)
+    component ActionRow : Rectangle {
+        id: aRow
+        property string label
+        property string glyph
+        property bool   danger: false
         signal triggered()
 
         width: parent.width
         height: 30
         radius: 5
+        color: aMa.pressed ? (Theme.dark ? Qt.rgba(1,1,1,0.14) : Qt.rgba(0,0,0,0.08))
+             : aMa.containsMouse ? (Theme.dark ? Qt.rgba(1,1,1,0.06)
+                                              : (aRow.danger ? "#FDE7E9" : Qt.rgba(0,0,0,0.03)))
+             : "transparent"
 
-        color: {
-            if (rowMa.pressed) return Theme.dark ? Qt.rgba(1,1,1,0.14) : Qt.rgba(0,0,0,0.08)
-            if (rowMa.containsMouse) return Theme.dark ? Qt.rgba(1,1,1,0.08) : Qt.rgba(0,0,0,0.04)
-            if (row.selected) return Theme.dark ? Qt.rgba(1,1,1,0.05) : Qt.rgba(0,0,0,0.025)
-            return "transparent"
-        }
-
-        // Leading glyph
         IconGlyph {
             anchors { left: parent.left; verticalCenter: parent.verticalCenter; leftMargin: 10 }
-            text: row.glyph
-            pixelSize: 13
-            color: Theme.text
+            text: aRow.glyph; pixelSize: 13
+            color: aRow.danger && aMa.containsMouse ? "#C42B1C" : Theme.text
         }
-        // Label
         Text {
-            anchors { left: parent.left; verticalCenter: parent.verticalCenter; leftMargin: 34
-                      right: trailing.left; rightMargin: 8 }
-            text: row.label
-            color: Theme.text
+            anchors { left: parent.left; verticalCenter: parent.verticalCenter; leftMargin: 34 }
+            text: aRow.label
+            color: aRow.danger && aMa.containsMouse ? "#C42B1C" : Theme.text
             font.pixelSize: 12
-            elide: Text.ElideRight
-        }
-        // Trailing: checkmark (selected) OR on/off pill (toggled) OR nothing
-        Item {
-            id: trailing
-            anchors { right: parent.right; verticalCenter: parent.verticalCenter; rightMargin: 10 }
-            width: 24; height: parent.height
-
-            // Checkmark for radio selection
-            IconGlyph {
-                anchors.centerIn: parent
-                visible: row.selected && !row.toggled
-                text: ""      // CheckMark
-                pixelSize: 12
-                color: Theme.accent
-            }
-            // On/off indicator for toggles
-            Rectangle {
-                anchors.centerIn: parent
-                visible: row.toggled
-                width: 20; height: 10; radius: 5
-                color: Theme.accent
-                Rectangle {
-                    width: 6; height: 6; radius: 3
-                    anchors { right: parent.right; verticalCenter: parent.verticalCenter; rightMargin: 2 }
-                    color: "white"
-                }
-            }
-            // Dimmer dot when a toggle is off, so the user still has a visual anchor
-            Rectangle {
-                anchors.centerIn: parent
-                visible: !row.toggled && !row.selected
-                       && (row.ListView ? false : false) // placeholder; just hide
-                width: 0; height: 0
-            }
         }
 
         MouseArea {
-            id: rowMa
+            id: aMa
             anchors.fill: parent
             hoverEnabled: true
             cursorShape: Qt.PointingHandCursor
-            onClicked: row.triggered()
+            onClicked: aRow.triggered()
         }
     }
 
