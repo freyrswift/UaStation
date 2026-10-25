@@ -135,12 +135,12 @@ Item {
 
             DialogButton {
                 label: Strings.t(Strings.Website)
-                enabled: root.item && root.item.url !== ""
+                actionable: root.item && root.item.url !== ""
                 onTriggered: app.openUrl(root.item.url)
             }
             DialogButton {
                 label: Strings.t(Strings.Uninstall)
-                enabled: root.item && root.item.state === 1
+                actionable: root.item && root.item.state === 1
                 onTriggered: {
                     if (app.uninstall(root.itemId)) {
                         app.showToast(root.item.name + Strings.t(Strings.UninstallOk))
@@ -151,7 +151,7 @@ Item {
             DialogButton {
                 label: Strings.t(Strings.Inject)
                 primary: true
-                enabled: root.item && root.item.detected && root.promptList.length > 0
+                actionable: root.item && root.item.detected && root.promptList.length > 0
                 onTriggered: {
                     const promptFile = root.promptList[root.selectedPrompt].fullPath
                     if (app.install(root.itemId, promptFile)) {
@@ -168,32 +168,34 @@ Item {
     }
 
     component DialogButton : Rectangle {
+        id: btn
         property string label
-        property bool  primary: false
-        property bool  enabled: true
+        property bool   primary: false
+        property bool   actionable: true   // avoid clashing with QQuickItem.enabled
         signal triggered()
 
         width: 72; height: 30; radius: 6
-        color: !enabled
+        color: !btn.actionable
                ? (Theme.dark ? "#333" : "#DDD")
-               : primary ? (ma.containsMouse ? Theme.accent : Qt.darker(Theme.accent, 1.1))
-                         : (ma.containsMouse ? Theme.surfaceAlt : "transparent")
-        border.width: primary ? 0 : 1
+               : btn.primary ? (ma.containsMouse ? Theme.accent : Qt.darker(Theme.accent, 1.1))
+                             : (ma.containsMouse ? Theme.surfaceAlt : "transparent")
+        border.width: btn.primary ? 0 : 1
         border.color: Theme.stroke
+        opacity: btn.actionable ? 1 : 0.6
 
         Text {
             anchors.centerIn: parent
-            text: label
-            color: primary ? "#1A1A1A" : Theme.text
+            text: btn.label
+            color: btn.primary ? "#1A1A1A" : Theme.text
             font.pixelSize: 11
-            font.bold: primary
+            font.bold: btn.primary
         }
         MouseArea {
             id: ma
             anchors.fill: parent
             hoverEnabled: true
-            cursorShape: enabled ? Qt.PointingHandCursor : Qt.ArrowCursor
-            onClicked: if (enabled) parent.triggered()
+            cursorShape: btn.actionable ? Qt.PointingHandCursor : Qt.ArrowCursor
+            onClicked: if (btn.actionable) btn.triggered()
         }
     }
 }
