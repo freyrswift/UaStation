@@ -63,30 +63,7 @@ Rectangle {
 
         Separator {}
 
-        // Toggles
-        ToggleRow {
-            label: (Strings.lang, Strings.t(Strings.Topmost)); glyph: ""
-            toggled: Settings.topmost
-            onToggle: { Settings.topmost = !Settings.topmost }
-        }
-        ToggleRow {
-            label: (Strings.lang, Strings.t(Strings.Autostart)); glyph: ""
-            toggled: Settings.autostart
-            onToggle: { Settings.autostart = !Settings.autostart }
-        }
-
-        Separator {}
-
-        // Actions
-        ActionRow {
-            label: Updater.checking ? (Strings.lang, Strings.t(Strings.UpdateCheck)) : (Strings.lang, Strings.t(Strings.CheckUpdate))
-            glyph: ""
-            onTriggered: { Updater.check(); root.closeRequested() }
-        }
-        ActionRow {
-            label: (Strings.lang, Strings.t(Strings.CleanData)); glyph: ""
-            onTriggered: { app.showToast("TODO"); root.closeRequested() }
-        }
+        // Actions        }        }
         ActionRow {
             label: (Strings.lang, Strings.t(Strings.About)); glyph: ""
             onTriggered: root.aboutRequested()
