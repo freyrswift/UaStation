@@ -13,7 +13,9 @@ Item {
     }
 
     Rectangle {
-        anchors.centerIn: parent
+        anchors.horizontalCenter: parent.horizontalCenter
+        anchors.top: parent.top
+        anchors.topMargin: 60
         width: 320
         height: 240
         radius: 10
