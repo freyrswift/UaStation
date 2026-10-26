@@ -7,11 +7,30 @@ Item {
     signal closeRequested()
 
     property string filter: ""
+    property int    activeCategory: 0   // 0 = All, 1..9 = SkillCategory enum values
     property var    allSkills: app.skills()
     property var    filteredSkills: {
-        if (filter === "") return allSkills
-        return allSkills.filter(s => s.dirName.toLowerCase().includes(filter.toLowerCase()))
+        const q = filter.toLowerCase()
+        return allSkills.filter(s => {
+            if (q !== "" && !s.dirName.toLowerCase().includes(q)) return false
+            if (activeCategory !== 0 && s.category !== activeCategory) return false
+            return true
+        })
     }
+
+    // Category chip labels, in SkillCategory enum order
+    readonly property var categoryLabels: [
+        Strings.t(Strings.CatAll),
+        Strings.t(Strings.CatReverse),
+        Strings.t(Strings.CatGame),
+        Strings.t(Strings.CatKernel),
+        Strings.t(Strings.CatExploit),
+        Strings.t(Strings.CatCrack),
+        Strings.t(Strings.CatMobile),
+        Strings.t(Strings.CatPentest),
+        Strings.t(Strings.CatAi),
+        Strings.t(Strings.CatOther),
+    ]
 
     // Dim backdrop
     Rectangle {
@@ -105,11 +124,57 @@ Item {
             }
         }
 
-        // Separator between search and list
+        // Category chip row (horizontally scrollable)
+        Flickable {
+            id: chipRow
+            anchors { top: searchBox.bottom; left: parent.left; right: parent.right
+                      leftMargin: panel.pad; rightMargin: panel.pad; topMargin: 10 }
+            height: 26
+            clip: true
+            contentWidth: chipLayout.width
+            boundsBehavior: Flickable.StopAtBounds
+
+            Row {
+                id: chipLayout
+                spacing: 6
+                Repeater {
+                    model: root.categoryLabels
+                    delegate: Rectangle {
+                        height: 24
+                        width: chipLabel.implicitWidth + 20
+                        radius: 12
+                        color: index === root.activeCategory
+                               ? Theme.accent
+                               : (chipMa.containsMouse
+                                  ? (Theme.dark ? Qt.rgba(1,1,1,0.08) : Qt.rgba(0,0,0,0.04))
+                                  : "transparent")
+                        border.width: 1
+                        border.color: index === root.activeCategory ? Theme.accent : Theme.stroke
+                        Text {
+                            id: chipLabel
+                            anchors.centerIn: parent
+                            text: modelData
+                            color: index === root.activeCategory ? "#1A1A1A" : Theme.text
+                            font.pixelSize: 11
+                            font.bold: index === root.activeCategory
+                        }
+                        MouseArea {
+                            id: chipMa
+                            anchors.fill: parent
+                            hoverEnabled: true
+                            cursorShape: Qt.PointingHandCursor
+                            onClicked: root.activeCategory = index
+                        }
+                    }
+                }
+            }
+        }
+
+        // Separator between chips and list
         Rectangle {
             id: separator
-            anchors { top: searchBox.bottom; left: parent.left; right: parent.right
-                      leftMargin: panel.pad; rightMargin: panel.pad; topMargin: 14 }
+            anchors { top: chipRow.bottom; left: parent.left; right: parent.right
+                      leftMargin: panel.pad; rightMargin: panel.pad; topMargin: 10 }
             height: 1
             color: Theme.stroke
         }

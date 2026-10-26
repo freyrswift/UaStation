@@ -10,6 +10,7 @@ namespace ua::core {
 struct SkillStatus {
     QString dirName;
     int     installedCount; // Across how many AI tools
+    int     category;       // SkillCategory enum value
 };
 
 class Skills

@@ -221,6 +221,7 @@ QVariantList AppController::skills()
         QVariantMap m;
         m[QStringLiteral("dirName")]        = s.dirName;
         m[QStringLiteral("installedCount")] = s.installedCount;
+        m[QStringLiteral("category")]       = s.category;
         out.push_back(m);
     }
     return out;

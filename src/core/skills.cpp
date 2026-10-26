@@ -144,7 +144,7 @@ QVector<SkillStatus> Skills::statuses()
                 skillsDir(it.skillsDirRel) + QLatin1Char('/') + sd.dirName + QStringLiteral("/SKILL.md"));
             if (QFileInfo::exists(file)) ++count;
         }
-        out.push_back({sd.dirName, count});
+        out.push_back({sd.dirName, count, static_cast<int>(sd.category)});
     }
     return out;
 }
