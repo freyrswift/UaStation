@@ -25,10 +25,10 @@ Item {
         id: panel
         anchors.horizontalCenter: parent.horizontalCenter
         anchors.top: parent.top
-        anchors.topMargin: 60
+        anchors.topMargin: 80
         anchors.bottom: parent.bottom
-        anchors.bottomMargin: 20
-        width: 400
+        anchors.bottomMargin: 40
+        width: 360
         radius: 12
         color: Theme.surface
         border.width: 1
@@ -62,7 +62,7 @@ Item {
             }
             TitleButton {
                 anchors { right: parent.right; verticalCenter: title.verticalCenter }
-                glyph: ""
+                glyph: "\uE8BB"
                 onClicked: root.closeRequested()
             }
         }
@@ -81,7 +81,7 @@ Item {
             IconGlyph {
                 id: searchIcon
                 anchors { left: parent.left; verticalCenter: parent.verticalCenter; leftMargin: 10 }
-                text: ""  // U+E721 Search
+                text: "\uE721"  // U+E721 Search
                 pixelSize: 13
                 color: Theme.sub
             }
@@ -176,7 +176,7 @@ Item {
                         visible: modelData.installedCount > 0
                         IconGlyph {
                             anchors.centerIn: parent
-                            text: ""
+                            text: "\uE711"
                             pixelSize: 11
                             color: rma.containsMouse ? (Theme.dark ? "#FF9A9A" : "#B33")
                                                      : Theme.sub
@@ -225,7 +225,7 @@ Item {
                 spacing: 8
                 IconGlyph {
                     anchors.verticalCenter: parent.verticalCenter
-                    text: ""  // U+E838 FolderOpen
+                    text: "\uE838"  // U+E838 FolderOpen
                     pixelSize: 14
                     color: "#1A1A1A"
                 }
