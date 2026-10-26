@@ -12,7 +12,6 @@
 #include <QNetworkReply>
 #include <QNetworkRequest>
 #include <QOperatingSystemVersion>
-#include <QProcess>
 #include <QStandardPaths>
 #include <QUrl>
 

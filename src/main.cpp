@@ -1,23 +1,21 @@
 // main.cpp - Qt entry point for Ua Toolbox
 //
-// Boots a QGuiApplication, wires the AppController, loads qml/Main.qml.
-// Single-instance check and frameless/round-corner window hints live here;
-// Mica / vibrancy / tray / autostart are provided by platform/* modules.
+// Boots the QApplication, wires AppController to QML, loads Main.qml.
+// Single-instance guard + Mica/vibrancy backdrop are delegated to the
+// platform/ shims (see platform/singleton_*.cpp and window_effects_*.cpp).
 
 #include <QApplication>
+#include <QCoreApplication>
+#include <QDateTime>
+#include <QFile>
+#include <QFontDatabase>
+#include <QIcon>
+#include <QMutex>
 #include <QQmlApplicationEngine>
 #include <QQmlContext>
 #include <QQuickStyle>
-#include <QFontDatabase>
-#include <QDir>
-#include <QFile>
-#include <QIcon>
-#include <QLoggingCategory>
-#include <QStandardPaths>
 #include <QTextStream>
 #include <QWindow>
-#include <QMutex>
-#include <QDateTime>
 
 namespace {
 // Opt-in message handler: when the UA_LOG environment variable is set, write

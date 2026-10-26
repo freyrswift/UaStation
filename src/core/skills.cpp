@@ -6,7 +6,6 @@
 #include "injector.h"
 
 #include <QDir>
-#include <QDirIterator>
 #include <QFile>
 #include <QFileInfo>
 
