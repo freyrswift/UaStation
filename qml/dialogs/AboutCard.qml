@@ -78,15 +78,25 @@ Item {
                     }
                 }
                 Rectangle {
-                    width: 110; height: 28; radius: 6
+                    width: 140; height: 28; radius: 6
                     color: upMa.containsMouse ? Theme.accent : Qt.darker(Theme.accent, 1.15)
                     Text {
                         anchors.centerIn: parent
-                        text: Updater.checking
-                              ? (Strings.lang, Strings.t(Strings.UpdateCheck))
-                              : (Updater.available
-                                 ? (Strings.lang, Strings.t(Strings.UpdateNew)) + Updater.latestVersion
-                                 : (Strings.lang, Strings.t(Strings.UpdateLatest)))
+                        text: {
+                            if (Updater.checking)
+                                return (Strings.lang, Strings.t(Strings.UpdateCheck))
+                            if (Updater.downloading)
+                                return (Strings.lang, Strings.t(Strings.UpdateDownloading))
+                                       + " " + Updater.downloadProgress + "%"
+                            if (Updater.ready)
+                                return (Strings.lang, Strings.t(Strings.UpdateReady))
+                            if (Updater.available)
+                                return (Strings.lang, Strings.t(Strings.UpdateBtn))
+                                       + " " + Updater.latestVersion
+                            if (Updater.checked)
+                                return (Strings.lang, Strings.t(Strings.UpdateLatest))
+                            return (Strings.lang, Strings.t(Strings.CheckUpdate))
+                        }
                         color: "#1A1A1A"
                         font.pixelSize: 11
                         font.bold: true
@@ -96,7 +106,12 @@ Item {
                         anchors.fill: parent
                         hoverEnabled: true
                         cursorShape: Qt.PointingHandCursor
-                        onClicked: Updater.check()
+                        onClicked: {
+                            if (Updater.downloading)        return
+                            if (Updater.ready)              { Updater.applyUpdate(); return }
+                            if (Updater.available)          { Updater.download();    return }
+                            Updater.check()
+                        }
                     }
                 }
             }
