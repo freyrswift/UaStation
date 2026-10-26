@@ -1,6 +1,7 @@
 // items.cpp - Static data tables
 
 #include "items.h"
+#include "strings.h"   // for Strings::StringId values used as nameId / subId
 
 namespace ua::core {
 
@@ -41,6 +42,7 @@ const QVector<Item>& allItems()
             false,
             QStringLiteral("e8fd"),
             {}, {}, {}, {}, /*isSkillsManager=*/true,
+            Strings::ToolsSkills,    Strings::ToolsSkillsSub,
         },
         {   QStringLiteral("relay"),
             QStringLiteral("满血中转站"),
@@ -51,6 +53,7 @@ const QVector<Item>& allItems()
             QStringLiteral("e774"),
             QStringLiteral("https://utlra.cc/"),
             {}, {}, {}, false,
+            Strings::ToolsRelay,     Strings::ToolsRelaySub,
         },
         {   QStringLiteral("tutorial"),
             QStringLiteral("使用教程"),
@@ -61,6 +64,7 @@ const QVector<Item>& allItems()
             QStringLiteral("e82d"),
             QStringLiteral("https://github.com/freyrswift/UaStation#usage"),
             {}, {}, {}, false,
+            Strings::ToolsTutorial,  Strings::ToolsTutorialSub,
         },
         {   QStringLiteral("help"),
             QStringLiteral("不会用点这里"),
@@ -71,6 +75,7 @@ const QVector<Item>& allItems()
             QStringLiteral("e897"),
             QStringLiteral("https://qm.qq.com/q/3XsJIxaZde"),
             {}, {}, {}, false,
+            Strings::ToolsHelp,      Strings::ToolsHelpSub,
         },
         {   QStringLiteral("qq"),
             QStringLiteral("加入QQ群"),
@@ -81,6 +86,7 @@ const QVector<Item>& allItems()
             QStringLiteral("e8bd"),
             QStringLiteral("https://qm.qq.com/q/3XsJIxaZde"),
             {}, {}, {}, false,
+            Strings::ToolsQQ,        Strings::ToolsQQSub,
         },
     };
     return kItems;

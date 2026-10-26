@@ -20,10 +20,9 @@
 #include <QDateTime>
 
 namespace {
-// Install a message handler that writes qInfo/qWarning/qDebug lines to a file
-// next to the exe. Needed because Ua.exe is a WIN32 GUI subsystem binary and
-// stderr is not attached to any console, so Start-Process redirects don't
-// capture anything.
+// Opt-in message handler: when the UA_LOG environment variable is set, write
+// qInfo/qWarning/qDebug lines to <exeDir>/ua.log. Off by default so field
+// installs don't scribble log files next to Ua.exe.
 void logToFile(QtMsgType type, const QMessageLogContext&, const QString& msg) {
     static QMutex lock;
     QMutexLocker guard(&lock);
@@ -53,7 +52,9 @@ void applyWindowEffects(QWindow* w, bool micaEnabled);
 
 int main(int argc, char* argv[])
 {
-    qInstallMessageHandler(logToFile);
+    if (!qEnvironmentVariableIsEmpty("UA_LOG")) {
+        qInstallMessageHandler(logToFile);
+    }
 
     QApplication::setApplicationName(QStringLiteral("Ua"));
     QApplication::setApplicationDisplayName(QStringLiteral("Ua Toolbox"));

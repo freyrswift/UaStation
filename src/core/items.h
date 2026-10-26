@@ -17,10 +17,14 @@ enum class ItemGroup : int {
 
 // Mirrors the old Item struct. `targetRel` is the POSIX-style path under $HOME
 // (e.g. ".claude/CLAUDE.md"). An empty string means auto-install is not supported.
+//
+// `nameId` / `subId` reference core::Strings::StringId; when they are -1 the
+// raw `name` / `sub` strings are used instead. Translated items set them so
+// their labels follow the current UI language.
 struct Item {
     QString id;             // Internal key, e.g. "claude" / "deepseek" / "skills-manager"
-    QString name;           // Display name
-    QString sub;            // Subtitle (CN by default; QML can override via strings)
+    QString name;           // Display name (brand names stay hard-coded)
+    QString sub;            // Subtitle fallback when subId is unset
     ItemGroup group;
     QString logo;           // "qrc:/logos/claude.svg" or empty when glyph is used
     bool framed = false;    // Logo already has a tile background; skip card tint
@@ -30,6 +34,8 @@ struct Item {
     QString note;           // Shown when auto-install is unsupported
     QString skillsDirRel;   // Skills install dir relative to $HOME
     bool    isSkillsManager = false; // Special-case: opens Skills manager, not a URL
+    int     nameId = -1;    // Strings::StringId; -1 keeps `name` as-is
+    int     subId  = -1;    // Strings::StringId; -1 keeps `sub` as-is
 };
 
 enum class SkillCategory : int {

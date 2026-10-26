@@ -28,6 +28,11 @@ AppController::AppController(QObject* parent) : QObject(parent)
 {
     Prompts::extractEmbedded();
     setupTray();
+
+    // Translated card labels: refresh the items snapshot whenever the UI
+    // language flips, so the Tools-tab tiles swap CN/EN live.
+    connect(Strings::instance(), &Strings::langChanged,
+            this, &AppController::itemsChanged);
 }
 
 AppController::~AppController() = default;
@@ -100,11 +105,16 @@ QVariantList AppController::buildItemsSnapshot() const
 {
     QVariantList out;
     out.reserve(allItems().size());
+    auto* strings = Strings::instance();
     for (const Item& it : allItems()) {
+        // Resolve translated name/sub when the item carries a StringId,
+        // falling back to the raw name/sub otherwise (e.g. Claude, DeepSeek).
+        const QString name = it.nameId >= 0 ? strings->get(static_cast<Strings::StringId>(it.nameId)) : it.name;
+        const QString sub  = it.subId  >= 0 ? strings->get(static_cast<Strings::StringId>(it.subId))  : it.sub;
         QVariantMap m;
         m[QStringLiteral("id")]              = it.id;
-        m[QStringLiteral("name")]            = it.name;
-        m[QStringLiteral("sub")]             = it.sub;
+        m[QStringLiteral("name")]            = name;
+        m[QStringLiteral("sub")]             = sub;
         m[QStringLiteral("group")]           = static_cast<int>(it.group);
         m[QStringLiteral("logo")]            = it.logo;
         m[QStringLiteral("framed")]          = it.framed;
