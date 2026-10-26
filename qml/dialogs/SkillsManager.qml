@@ -23,8 +23,9 @@ Item {
         anchors.horizontalCenter: parent.horizontalCenter
         anchors.top: parent.top
         anchors.topMargin: 60
+        anchors.bottom: parent.bottom
+        anchors.bottomMargin: 20
         width: 400
-        height: 460
         radius: 10
         color: Theme.surface
         border.width: 1
@@ -54,11 +55,12 @@ Item {
             font.pixelSize: 11
         }
 
-        // Search
+        // Search (below the title/count line, full-width minus pad)
         Rectangle {
             id: searchBox
-            anchors { top: parent.top; right: parent.right; margins: 16 }
-            width: 160; height: 28; radius: 6
+            anchors { top: parent.top; left: parent.left; right: parent.right
+                      leftMargin: 16; rightMargin: 16; topMargin: 48 }
+            height: 28; radius: 6
             color: Theme.surfaceAlt
             border.width: 1
             border.color: Theme.stroke
