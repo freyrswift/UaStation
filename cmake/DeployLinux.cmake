@@ -23,8 +23,8 @@ install(FILES "${CMAKE_BINARY_DIR}/Ua.desktop"
     DESTINATION share/applications
 )
 
-if(EXISTS "${CMAKE_SOURCE_DIR}/Ua/Ua.ico")
-    install(FILES "${CMAKE_SOURCE_DIR}/Ua/Ua.ico"
+if(EXISTS "${CMAKE_SOURCE_DIR}/resources/Ua.ico")
+    install(FILES "${CMAKE_SOURCE_DIR}/resources/Ua.ico"
         DESTINATION share/icons/hicolor/256x256/apps
         RENAME Ua.ico
     )

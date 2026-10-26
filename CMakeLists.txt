@@ -83,7 +83,7 @@ if(WIN32)
         src/platform/singleton_win.cpp
     )
     target_link_libraries(Ua PRIVATE dwmapi user32 shell32 advapi32)
-    set(APP_ICON_WIN ${CMAKE_SOURCE_DIR}/Ua/Ua.ico)
+    set(APP_ICON_WIN ${CMAKE_SOURCE_DIR}/resources/Ua.ico)
     if(EXISTS ${APP_ICON_WIN})
         configure_file(${CMAKE_SOURCE_DIR}/cmake/app.rc.in app.rc @ONLY)
         target_sources(Ua PRIVATE ${CMAKE_CURRENT_BINARY_DIR}/app.rc)
