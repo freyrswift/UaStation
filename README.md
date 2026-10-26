@@ -11,7 +11,7 @@
 
 ## Ua Toolbox 中文
 
-一键为 AI 编程工具安装提示词和技能的 Windows 原生工具。
+一键为 AI 编程工具安装提示词和技能的桌面工具，跨 **Windows / Linux / macOS**。
 
 <p align="center">
   <img src="docs/screenshots/main-editor.png" width="460" alt="主界面" />
@@ -44,13 +44,14 @@
 | 特性 | 说明 |
 |------|------|
 | 🔧 一键安装 | 选择 AI 工具 → 选择提示词 → 点击安装，三步搞定 |
-| 🤖 15 款 AI 工具 | Claude Code、Codex、Cursor、Gemini CLI、VS Code 等主流工具全覆盖 |
-| 🔍 智能检测 | 自动识别电脑中已安装的 AI 工具，未安装的自动灰显 |
-| 📝 8 套提示词模板 | 专家模式 / 开发工程 / 写作润色，按需选择 |
-| 🌐 中英双语 | 界面和提示词均支持中英文切换 |
-| 🎨 深浅主题 | 跟随系统或手动切换，Win11 支持 Mica 效果 |
-| 🔄 自动更新 | 静默检查新版本，一键下载安装 |
-| 📦 单文件运行 | 1 MB 的 exe，无需安装，无任何依赖 |
+| 🤖 支持的 AI 工具 | Claude Code、DeepSeek Harness（陆续扩展） |
+| 🔍 智能检测 | 自动识别电脑中已安装的 AI 工具，未检测到的自动灰显 |
+| 📝 内嵌提示词 | 启动即释放 `Ua.md` 到 `%APPDATA%/Ua/prompts/`，可自己增减 |
+| 🎒 40 个 Skills | 覆盖逆向 / 游戏 / 内核 / 漏洞 / 破解 / 移动 / 渗透 / AI 等分类 |
+| 🌐 中英双语 | 界面所有文字实时切换，不需要重启 |
+| 🎨 深浅主题 | 跟随系统或手动切换，Win11 Mica 效果 |
+| 🖥 跨平台 | Windows x64 / Linux x64 / macOS arm64 一套代码 |
+| 📦 托盘常驻 | 关闭 → 隐藏到系统托盘，不打扰 |
 
 ### 使用方法
 
@@ -74,16 +75,32 @@
 
 ### 系统要求
 
-- Windows 10 1809+ / Windows 11
-- x64 架构
+- **Windows** 10 1809+ 或 Windows 11（x64）
+- **Linux**：GTK/Qt-friendly 桌面环境（Ubuntu 22.04+ 验证通过）（x64）
+- **macOS** 11+（arm64 / x86_64）
 
 ### 构建方法
 
+依赖：**Qt 6.5+** · **CMake 3.21+** · **Ninja 或 Make** · 对应平台的 C++20 编译器。
+
 ```powershell
-msbuild Ua.slnx /p:Configuration=Release /p:Platform=x64
+# Windows (MSVC)：
+cmake -S . -B build -G Ninja -DCMAKE_BUILD_TYPE=Release `
+      -DCMAKE_PREFIX_PATH=D:\Qt\6.8.3\msvc2022_64
+cmake --build build
+
+# Linux：
+cmake -S . -B build -G Ninja -DCMAKE_BUILD_TYPE=Release
+cmake --build build
+cpack -G TGZ    # 可选：打 .tar.gz
+
+# macOS：
+cmake -S . -B build -G Ninja -DCMAKE_BUILD_TYPE=Release
+cmake --build build
+cpack -G DragNDrop    # 打 .dmg
 ```
 
-需要 Visual Studio 2022+，含 C++ 桌面开发工作负载。
+Windows 构建的 Ua.exe 自动跟 Qt 运行时 DLL + QML 插件打在同一目录（走 `windeployqt`），直接拷整个 `build/` 就能分发。
 
 ### Star History
 
@@ -108,7 +125,7 @@ MIT License，详见 [LICENSE](LICENSE)。
 
 ## Ua Toolbox English
 
-A lightweight Windows tool for installing prompts and skills into AI coding tools.
+A cross-platform (**Windows / Linux / macOS**) desktop tool that installs prompts and skills into AI coding tools in one click.
 
 <p align="center">
   <img src="docs/screenshots/main-editor.png" width="460" alt="主界面" />
@@ -141,13 +158,14 @@ This tool is provided in compliance with applicable laws and regulations. By usi
 | Feature | Description |
 |---------|-------------|
 | 🔧 One-Click Install | Select tool → Pick prompt → Install. Three steps. |
-| 🤖 15 AI Tools | Claude Code, Codex, Cursor, Gemini CLI, VS Code and more |
+| 🤖 Supported Tools | Claude Code, DeepSeek Harness (more coming) |
 | 🔍 Auto Detection | Automatically detects installed AI tools on your system |
-| 📝 8 Prompt Templates | Expert / Development / Writing modes |
-| 🌐 Bilingual | Full CN/EN interface and prompt support |
+| 📝 Embedded Prompt | Drops `Ua.md` into `%APPDATA%/Ua/prompts/` at first launch |
+| 🎒 40 Skills | Reverse / Game / Kernel / Exploit / Crack / Mobile / Pentest / AI categories |
+| 🌐 Bilingual | Full CN/EN interface, live switch — no restart |
 | 🎨 Themes | Dark / Light / System, Win11 Mica support |
-| 🔄 Auto Update | Silent version check, one-click update |
-| 📦 Portable | Single 1 MB exe, no installer, zero dependencies |
+| 🖥 Cross-platform | Windows x64 / Linux x64 / macOS arm64, one codebase |
+| 📦 Tray-resident | Close → hide to system tray, stays out of the way |
 
 ### Usage
 
@@ -171,14 +189,32 @@ After that, you can give the AI tasks in plain language — the prompt automatic
 
 ### Requirements
 
-- Windows 10 1809+ / Windows 11
-- x64
+- **Windows** 10 1809+ or Windows 11 (x64)
+- **Linux**: a GTK/Qt-friendly desktop (verified on Ubuntu 22.04+, x64)
+- **macOS** 11+ (arm64 / x86_64)
 
 ### Build
 
-```powershell
-msbuild Ua.slnx /p:Configuration=Release /p:Platform=x64
+Dependencies: **Qt 6.5+** · **CMake 3.21+** · **Ninja or Make** · a C++20 compiler for your OS.
+
+```bash
+# Windows (MSVC):
+cmake -S . -B build -G Ninja -DCMAKE_BUILD_TYPE=Release ^
+      -DCMAKE_PREFIX_PATH=D:\Qt\6.8.3\msvc2022_64
+cmake --build build
+
+# Linux:
+cmake -S . -B build -G Ninja -DCMAKE_BUILD_TYPE=Release
+cmake --build build
+cpack -G TGZ        # optional: .tar.gz
+
+# macOS:
+cmake -S . -B build -G Ninja -DCMAKE_BUILD_TYPE=Release
+cmake --build build
+cpack -G DragNDrop  # .dmg
 ```
+
+On Windows the build auto-deploys Qt runtime + QML plugins next to Ua.exe (via `windeployqt`), so `build/` ships as-is.
 
 Requires Visual Studio 2022+ with C++ Desktop Development workload.
 
