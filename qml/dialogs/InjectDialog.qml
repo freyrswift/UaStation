@@ -10,6 +10,7 @@ Item {
     property var    item: itemId !== "" ? (app.items.find(it => it.id === itemId) || ({})) : ({})
     property int    selectedPrompt: 0
     property var    promptList: app.prompts
+    property bool   confirmUninstall: false
 
     Rectangle {
         anchors.fill: parent
@@ -143,12 +144,7 @@ Item {
             DialogButton {
                 label: (Strings.lang, Strings.t(Strings.Uninstall))
                 actionable: root.item && root.item.state === 1
-                onTriggered: {
-                    if (app.uninstall(root.itemId)) {
-                        app.showToast(root.item.name + (Strings.lang, Strings.t(Strings.UninstallOk)))
-                        root.closeRequested()
-                    }
-                }
+                onTriggered: root.confirmUninstall = true
             }
             DialogButton {
                 label: (Strings.lang, Strings.t(Strings.Inject))
@@ -165,6 +161,59 @@ Item {
             DialogButton {
                 label: (Strings.lang, Strings.t(Strings.Open))
                 onTriggered: app.revealTargetDir(root.itemId)
+            }
+        }
+    }
+
+    // Uninstall confirmation overlay — covers the dialog area while a decision is pending.
+    Rectangle {
+        anchors.fill: parent
+        visible: root.confirmUninstall
+        color: Qt.rgba(0, 0, 0, 0.5)
+        MouseArea { anchors.fill: parent }   // swallow clicks
+
+        Rectangle {
+            anchors.centerIn: parent
+            width: 320
+            implicitHeight: col.implicitHeight + 32
+            radius: 10
+            color: Theme.surface
+            border.width: 1
+            border.color: Theme.stroke
+
+            Column {
+                id: col
+                anchors { left: parent.left; right: parent.right; top: parent.top
+                          leftMargin: 20; rightMargin: 20; topMargin: 20 }
+                spacing: 12
+                Text {
+                    width: parent.width
+                    text: (Strings.lang, Strings.t(Strings.ConfirmUninstall))
+                    color: Theme.text
+                    font.pixelSize: 12
+                    wrapMode: Text.Wrap
+                }
+                Row {
+                    anchors.horizontalCenter: parent.horizontalCenter
+                    spacing: 10
+                    DialogButton {
+                        label: (Strings.lang, Strings.t(Strings.Uninstall))
+                        primary: true
+                        onTriggered: {
+                            if (app.uninstall(root.itemId)) {
+                                app.showToast(root.item.name + (Strings.lang, Strings.t(Strings.UninstallOk)))
+                                root.confirmUninstall = false
+                                root.closeRequested()
+                            } else {
+                                root.confirmUninstall = false
+                            }
+                        }
+                    }
+                    DialogButton {
+                        label: Strings.lang === 0 ? "取消" : "Cancel"
+                        onTriggered: root.confirmUninstall = false
+                    }
+                }
             }
         }
     }
