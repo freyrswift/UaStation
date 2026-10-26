@@ -32,29 +32,27 @@ add_custom_command(TARGET Ua POST_BUILD
     VERBATIM
 )
 
-# Install rule for `cmake --install`: copy the entire deployed tree.
+# Install rule for `cmake --install`.  Earlier version used
+# `install(DIRECTORY ... FILES_MATCHING)` which, with the Visual Studio
+# generator, dumped every intermediate ALL_BUILD/ZERO_CHECK/*_autogen/
+# directory into the install prefix.  Instead, enumerate exactly what we
+# want: the exe, Qt DLLs at the top level, and the plugin + QML module
+# directories that windeployqt dropped next to Ua.exe.
+install(PROGRAMS $<TARGET_FILE:Ua> DESTINATION .)
+
 install(DIRECTORY $<TARGET_FILE_DIR:Ua>/
     DESTINATION .
     FILES_MATCHING
-        PATTERN "*.exe"
         PATTERN "*.dll"
-        PATTERN "*.qmltypes"
-        PATTERN "qmldir"
-        PATTERN "*.qm"
-        PATTERN "generic/*"
-        PATTERN "iconengines/*"
-        PATTERN "imageformats/*"
-        PATTERN "platforms/*"
-        PATTERN "styles/*"
-        PATTERN "translations/*"
-        PATTERN "QtQuick/*"
-        PATTERN "QtQml/*"
-        PATTERN "UaApp/*"
-        PATTERN "CMakeFiles" EXCLUDE
-        PATTERN ".qt" EXCLUDE
-        PATTERN ".rcc" EXCLUDE
-        PATTERN "Ua_autogen" EXCLUDE
-        PATTERN "meta_types" EXCLUDE
-        PATTERN "qmltypes" EXCLUDE
-        PATTERN "qmltooling" EXCLUDE
+        PATTERN "*.exe" EXCLUDE
 )
+
+foreach(subdir IN ITEMS
+        platforms iconengines imageformats
+        networkinformation tls styles generic
+        UaApp qml)
+    install(DIRECTORY $<TARGET_FILE_DIR:Ua>/${subdir}
+        DESTINATION .
+        OPTIONAL
+    )
+endforeach()

@@ -1,27 +1,29 @@
-﻿# ---- Legacy Win32 build output ----
-Ua/x64/
-Ua/*.user
-Ua/*.vcxproj.filters
-Ua/backup-before-split/
-Ua/backup-ui-split/
-Ua/icon-build/
-Ua/Ua/
-x64/
-
-# ---- Qt / CMake build output ----
+﻿# ---- Build output ----
 build/
 build-*/
+dist/
+.zip-smoke/
+Ua-*.zip
+Ua-*.tar.gz
+Ua-*.AppImage
+Ua-*.dmg
+x64/
+
+# ---- CMake intermediates ----
 CMakeCache.txt
 CMakeFiles/
 cmake_install.cmake
 install_manifest.txt
 .cmake/
-qt-install.log
+CMakeUserPresets.json
 
-# ---- CMake / IDE workspace ----
+# ---- Qt install logs ----
+qt-install.log
+aqtinstall.log
+
+# ---- IDE workspace ----
 .vs/
 .vscode/
-CMakeUserPresets.json
 *.swp
 
 # ---- Compilation intermediates ----
