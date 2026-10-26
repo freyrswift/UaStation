@@ -54,8 +54,8 @@ Rectangle {
             label: (Strings.lang, Strings.t(Strings.Lang))
             glyph: ""
             options: [
-                { text: "中文",    glyph: "" },
-                { text: "English", glyph: "" },
+                { text: "中文",    glyph: "\uE774" },
+                { text: "English", glyph: "\uE774" },
             ]
             selectedIndex: Strings.lang
             onSelect: (i) => { Strings.lang = i }
