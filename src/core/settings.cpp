@@ -6,16 +6,10 @@
 #include <QSettings>
 #include <QStyleHints>
 
-namespace ua::platform {
-bool  autostartEnabled();
-bool  setAutostartEnabled(bool on);
-} // namespace ua::platform
-
 namespace ua::core {
 
 namespace {
 constexpr const char* kThemeKey      = "ui/themeMode";
-constexpr const char* kTopmostKey    = "ui/topmost";
 constexpr const char* kDisclaimerKey = "ui/disclaimerAccepted";
 } // namespace
 
@@ -29,7 +23,6 @@ Settings::Settings(QObject* parent) : QObject(parent)
 {
     QSettings s;
     m_themeMode          = s.value(QString::fromLatin1(kThemeKey), System).toInt();
-    m_topmost            = s.value(QString::fromLatin1(kTopmostKey), false).toBool();
     m_disclaimerAccepted = s.value(QString::fromLatin1(kDisclaimerKey), false).toBool();
 }
 
@@ -42,27 +35,6 @@ void Settings::setThemeMode(int mode)
     m_themeMode = mode;
     QSettings().setValue(QString::fromLatin1(kThemeKey), mode);
     emit themeModeChanged();
-}
-
-bool Settings::topmost() const { return m_topmost; }
-
-void Settings::setTopmost(bool on)
-{
-    if (on == m_topmost) return;
-    m_topmost = on;
-    QSettings().setValue(QString::fromLatin1(kTopmostKey), on);
-    emit topmostChanged();
-}
-
-bool Settings::autostart() const
-{
-    return ua::platform::autostartEnabled();
-}
-
-void Settings::setAutostart(bool on)
-{
-    if (on == autostart()) return;
-    if (ua::platform::setAutostartEnabled(on)) emit autostartChanged();
 }
 
 bool Settings::disclaimerAccepted() const { return m_disclaimerAccepted; }

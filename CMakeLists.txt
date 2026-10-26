@@ -78,7 +78,6 @@ target_sources(Ua PRIVATE
 # Platform-specific sources
 if(WIN32)
     target_sources(Ua PRIVATE
-        src/platform/autostart_win.cpp
         src/platform/window_effects_win.cpp
         src/platform/singleton_win.cpp
     )
@@ -90,7 +89,6 @@ if(WIN32)
     endif()
 elseif(APPLE)
     target_sources(Ua PRIVATE
-        src/platform/autostart_mac.cpp
         src/platform/window_effects_mac.mm
         src/platform/singleton_posix.cpp
     )
@@ -103,7 +101,6 @@ elseif(APPLE)
     )
 else()
     target_sources(Ua PRIVATE
-        src/platform/autostart_linux.cpp
         src/platform/window_effects_linux.cpp
         src/platform/singleton_posix.cpp
     )

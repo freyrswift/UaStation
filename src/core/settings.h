@@ -19,8 +19,6 @@ class Settings : public QObject
     QML_SINGLETON
 
     Q_PROPERTY(int  themeMode READ themeMode  WRITE setThemeMode  NOTIFY themeModeChanged)
-    Q_PROPERTY(bool topmost   READ topmost    WRITE setTopmost    NOTIFY topmostChanged)
-    Q_PROPERTY(bool autostart READ autostart  WRITE setAutostart  NOTIFY autostartChanged)
     Q_PROPERTY(bool disclaimerAccepted READ disclaimerAccepted WRITE setDisclaimerAccepted NOTIFY disclaimerAcceptedChanged)
 
 public:
@@ -33,12 +31,6 @@ public:
     int  themeMode() const;
     void setThemeMode(int mode);
 
-    bool topmost() const;
-    void setTopmost(bool on);
-
-    bool autostart() const;
-    void setAutostart(bool on);
-
     bool disclaimerAccepted() const;
     void setDisclaimerAccepted(bool on);
 
@@ -47,14 +39,11 @@ public:
 
 signals:
     void themeModeChanged();
-    void topmostChanged();
-    void autostartChanged();
     void disclaimerAcceptedChanged();
 
 private:
     explicit Settings(QObject* parent = nullptr);
     int  m_themeMode = System;
-    bool m_topmost = false;
     bool m_disclaimerAccepted = false;
 };
 

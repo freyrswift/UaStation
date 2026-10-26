@@ -1,8 +1,8 @@
-// autostart.h - Cross-platform platform-shim API
+// autostart.h - Cross-platform platform shim (single-instance + window effects)
 //
-// Despite the filename this covers more than autostart: single-instance and
-// window backdrop effects live here too so there's one include per platform
-// consumer. Implementations are in platform/<name>_<os>.cpp.
+// Filename is historical; this header no longer carries autostart hooks
+// because the Settings UI doesn't expose that toggle. Keep the include
+// path stable until a rename makes sense.
 
 #pragma once
 
@@ -13,13 +13,6 @@ class QWindow;
 QT_END_NAMESPACE
 
 namespace ua::platform {
-
-// Current state (checks HKCU\Run on Win, ~/Library/LaunchAgents on Mac,
-// ~/.config/autostart/<app>.desktop on Linux).
-bool autostartEnabled();
-
-// Enable/disable. Returns true on success.
-bool setAutostartEnabled(bool on);
 
 // Acquire single-instance lock. Returns false if another instance already runs.
 bool acquireSingleInstance(const QString& key);
