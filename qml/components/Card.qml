@@ -7,10 +7,10 @@ Rectangle {
     id: root
     radius: 8
     border.width: 1
-    border.color: Theme.dark ? Qt.rgba(1,1,1, ma.containsMouse ? 0.18 : 0.12)
-                               : Qt.rgba(0,0,0, (ma.containsMouse ? 0.18 : 0.12) * 0.6)
-    color: Theme.dark ? Qt.rgba(1,1,1, ma.containsMouse ? 0.10 : 0.05)
-                        : Qt.rgba(0,0,0, (ma.containsMouse ? 0.10 : 0.05) * 0.6)
+    border.color: Theme.dark ? Qt.rgba(1,1,1, ma.containsMouse ? 0.24 : 0.12)
+                               : Qt.rgba(0,0,0, ma.containsMouse ? 0.16 : 0.08)
+    color: Theme.dark ? Qt.rgba(1,1,1, ma.containsMouse ? 0.14 : 0.05)
+                        : Qt.rgba(0,0,0, ma.containsMouse ? 0.06 : 0.025)
 
     property var item: ({})
     signal clicked()
