@@ -72,7 +72,7 @@ Rectangle {
         id: chevron
         anchors { right: parent.right; verticalCenter: parent.verticalCenter; rightMargin: 10 }
         width: 16; height: 16
-        text: ""
+        text: ""
         pixelSize: 11
         color: ma.containsMouse ? Theme.text : Theme.sub
     }

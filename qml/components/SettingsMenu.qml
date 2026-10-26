@@ -41,9 +41,9 @@ Rectangle {
             label: (Strings.lang, Strings.t(Strings.Theme))
             glyph: ""
             options: [
-                { text: (Strings.lang, Strings.t(Strings.ThemeSystem)), glyph: "" },
-                { text: (Strings.lang, Strings.t(Strings.ThemeDark)),   glyph: "" },
-                { text: (Strings.lang, Strings.t(Strings.ThemeLight)),  glyph: "" },
+                { text: (Strings.lang, Strings.t(Strings.ThemeSystem)), glyph: "" },
+                { text: (Strings.lang, Strings.t(Strings.ThemeDark)),   glyph: "" },
+                { text: (Strings.lang, Strings.t(Strings.ThemeLight)),  glyph: "" },
             ]
             selectedIndex: Settings.themeMode
             onSelect: (i) => { Settings.themeMode = i }
@@ -52,10 +52,10 @@ Rectangle {
         // Language: segmented control
         SegmentedRow {
             label: (Strings.lang, Strings.t(Strings.Lang))
-            glyph: ""
+            glyph: ""
             options: [
-                { text: "中文",    glyph: "\uE774" },
-                { text: "English", glyph: "\uE774" },
+                { text: "中文",    glyph: "\uE99B" },
+                { text: "English", glyph: "\uE99B" },
             ]
             selectedIndex: Strings.lang
             onSelect: (i) => { Strings.lang = i }
@@ -65,11 +65,11 @@ Rectangle {
 
         // Actions        }        }
         ActionRow {
-            label: (Strings.lang, Strings.t(Strings.About)); glyph: ""
+            label: (Strings.lang, Strings.t(Strings.About)); glyph: ""
             onTriggered: root.aboutRequested()
         }
         ActionRow {
-            label: (Strings.lang, Strings.t(Strings.Exit)); glyph: ""
+            label: (Strings.lang, Strings.t(Strings.Exit)); glyph: ""
             danger: true
             onTriggered: app.quit()
         }

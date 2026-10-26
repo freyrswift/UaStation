@@ -75,10 +75,11 @@ int main(int argc, char* argv[])
         return 0;
     }
 
-    // TODO(cross-platform-glyphs): ship a Fluent-icons .ttf and
-    // QFontDatabase::addApplicationFont it here so Linux / macOS get the glyphs
-    // Windows gets from Segoe MDL2 Assets. For now icons will be blank on those
-    // two platforms (SVG logos still render fine).
+    // Load the bundled Fluent UI System Icons font so every platform draws
+    // the same glyphs (Windows still has Segoe MDL2 Assets but we standardise
+    // on the bundled font to keep the codepoint table single-sourced).
+    QFontDatabase::addApplicationFont(
+        QStringLiteral(":/fonts/FluentSystemIcons-Resizable.ttf"));
 
     // Create persistent dirs ($APPDATA/Ua or XDG equivalent) up front so writes don't race.
     ua::core::ensureUserDirs();

@@ -95,9 +95,9 @@ Window {
             Row {
                 anchors { right: parent.right; top: parent.top; margins: 4 }
                 spacing: 0
-                TitleButton { glyph: ""; onClicked: root.settingsMenuOpen = !root.settingsMenuOpen }
-                TitleButton { glyph: ""; onClicked: root.visibility = Window.Minimized }
-                TitleButton { glyph: ""; danger: true; onClicked: root.hide() }
+                TitleButton { glyph: ""; onClicked: root.settingsMenuOpen = !root.settingsMenuOpen }
+                TitleButton { glyph: ""; onClicked: root.visibility = Window.Minimized }
+                TitleButton { glyph: ""; danger: true; onClicked: root.hide() }
             }
 
             TabBar {

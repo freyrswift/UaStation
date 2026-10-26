@@ -5,6 +5,9 @@
     <file alias="icons/Ua.ico">resources/Ua.ico</file>
     <file alias="icons/Ua.png">resources/Ua.ico</file>
 
+    <!-- Bundled icon font (MIT) so Linux/macOS get the same glyphs as Windows -->
+    <file alias="fonts/FluentSystemIcons-Resizable.ttf">resources/fonts/FluentSystemIcons-Resizable.ttf</file>
+
     <!-- Shared prompt (lives in the user's writable prompts/ at runtime via Prompts::extractEmbedded) -->
     <file alias="prompts/Ua.md">prompts/Ua.md</file>
 

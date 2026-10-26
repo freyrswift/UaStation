@@ -81,7 +81,7 @@ Item {
             }
             TitleButton {
                 anchors { right: parent.right; verticalCenter: title.verticalCenter }
-                glyph: "\uE8BB"
+                glyph: "\uE6D3"
                 onClicked: root.closeRequested()
             }
         }
@@ -100,7 +100,7 @@ Item {
             IconGlyph {
                 id: searchIcon
                 anchors { left: parent.left; verticalCenter: parent.verticalCenter; leftMargin: 10 }
-                text: "\uE721"  // U+E721 Search
+                text: "\uEFD7"  // U+efd7 Search
                 pixelSize: 13
                 color: Theme.sub
             }
@@ -241,7 +241,7 @@ Item {
                         visible: modelData.installedCount > 0
                         IconGlyph {
                             anchors.centerIn: parent
-                            text: "\uE711"
+                            text: "\uE6D3"
                             pixelSize: 11
                             color: rma.containsMouse ? (Theme.dark ? "#FF9A9A" : "#B33")
                                                      : Theme.sub
@@ -290,7 +290,7 @@ Item {
                 spacing: 8
                 IconGlyph {
                     anchors.verticalCenter: parent.verticalCenter
-                    text: "\uE838"  // U+E838 FolderOpen
+                    text: "\uE8EB"  // U+e8eb FolderOpen
                     pixelSize: 14
                     color: "#1A1A1A"
                 }

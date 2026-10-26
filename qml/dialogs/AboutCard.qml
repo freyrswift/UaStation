@@ -26,7 +26,7 @@ Item {
         // Close
         TitleButton {
             anchors { top: parent.top; right: parent.right; margins: 6 }
-            glyph: ""
+            glyph: ""
             onClicked: root.closeRequested()
         }
 
