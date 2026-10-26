@@ -149,57 +149,7 @@ Rectangle {
         }
     }
 
-    // Row with an on/off switch on the right
-    component ToggleRow : Rectangle {
-        id: tRow
-        property string label
-        property string glyph
-        property bool   toggled: false
-        signal toggle()
-
-        width: parent.width
-        height: 32
-        radius: 5
-        color: tMa.pressed ? (Theme.dark ? Qt.rgba(1,1,1,0.14) : Qt.rgba(0,0,0,0.08))
-             : tMa.containsMouse ? (Theme.dark ? Qt.rgba(1,1,1,0.06) : Qt.rgba(0,0,0,0.03))
-             : "transparent"
-
-        IconGlyph {
-            anchors { left: parent.left; verticalCenter: parent.verticalCenter; leftMargin: 10 }
-            text: tRow.glyph; pixelSize: 13; color: Theme.text
-        }
-        Text {
-            anchors { left: parent.left; verticalCenter: parent.verticalCenter; leftMargin: 34
-                      right: pill.left; rightMargin: 8 }
-            text: tRow.label; color: Theme.text; font.pixelSize: 12
-            elide: Text.ElideRight
-        }
-        // Fluent switch
-        Rectangle {
-            id: pill
-            anchors { right: parent.right; verticalCenter: parent.verticalCenter; rightMargin: 10 }
-            width: 32; height: 16; radius: 8
-            color: tRow.toggled ? Theme.accent
-                                : (Theme.dark ? "#464646" : "#D0D0D0")
-            Rectangle {
-                width: 10; height: 10; radius: 5
-                anchors.verticalCenter: parent.verticalCenter
-                x: tRow.toggled ? parent.width - width - 3 : 3
-                color: tRow.toggled ? "#1A1A1A" : "white"
-                Behavior on x { NumberAnimation { duration: 150; easing.type: Easing.OutCubic } }
-            }
-        }
-
-        MouseArea {
-            id: tMa
-            anchors.fill: parent
-            hoverEnabled: true
-            cursorShape: Qt.PointingHandCursor
-            onClicked: tRow.toggle()
-        }
-    }
-
-    // Plain action row (triggers once on click)
+// Plain action row (triggers once on click)
     component ActionRow : Rectangle {
         id: aRow
         property string label
