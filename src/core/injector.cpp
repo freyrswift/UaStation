@@ -350,8 +350,10 @@ InjectResult Injector::install(const QString& itemId, const QString& promptFile)
 InjectResult Injector::uninstall(const QString& itemId)
 {
     InjectResult r;
+    qInfo() << "[uninject] uninstall() itemId=" << itemId;
     const Item* item = itemById(itemId);
     if (!item || item->targetRel.isEmpty()) {
+        qWarning() << "[uninject] fail: unsupported item" << itemId;
         r.error = errText(Strings::ErrNoState);
         return r;
     }
@@ -363,20 +365,43 @@ InjectResult Injector::uninstall(const QString& itemId)
 
     TargetState ts;
     const bool haveState = loadState(itemId, ts);
+    qInfo() << "[uninject] target=" << tp << "exists=" << fileExists
+            << "size=" << doc.size() << "haveState=" << haveState
+            << "originalExisted=" << ts.originalExisted;
 
     // Prefer surgical marker wipe when markers are present (keeps user content)
     if (fileExists && hasMarker(doc)) {
         const QByteArray cleaned = wipeMarked(doc);
-        if (!writeAtomic(tp, cleaned)) { r.error = errText(Strings::ErrWriteTarget); return r; }
+        qInfo() << "[uninject] cleaned size=" << cleaned.size();
+
+        // If the file is now empty AND we created it in the first place,
+        // delete the file instead of leaving a 0-byte stub behind.
+        const bool wasOurFile = haveState && !ts.originalExisted;
+        if (cleaned.isEmpty() && wasOurFile) {
+            if (!QFile::remove(tp)) {
+                qWarning() << "[uninject] fail: could not remove empty target";
+                r.error = errText(Strings::ErrWriteTarget);
+                return r;
+            }
+            qInfo() << "[uninject] target removed (was our file, now empty)";
+        } else {
+            if (!writeAtomic(tp, cleaned)) {
+                qWarning() << "[uninject] fail: writeAtomic";
+                r.error = errText(Strings::ErrWriteTarget);
+                return r;
+            }
+        }
     } else if (haveState) {
         // Legacy full-file injection path: restore the pre-install backup.
         if (!restoreBackup(tp, ts)) { r.error = errText(Strings::ErrRestore); return r; }
     } else {
+        qWarning() << "[uninject] fail: no marker + no state -> nothing to do";
         r.error = errText(Strings::ErrNoState);
         return r;
     }
 
     deleteState(itemId);
+    qInfo() << "[uninject] done, state cleared";
     r.ok = true;
     return r;
 }

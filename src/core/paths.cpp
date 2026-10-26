@@ -22,12 +22,19 @@ QString homeDir()
 
 QString configDir()
 {
-    // Match the Win32 build's layout: one "Ua" segment under %APPDATA%, not
-    // the Qt default "<orgName>/<appName>" which gives "Ua/Ua". Users carrying
-    // state from a previous Win32 Ua install find it in-place this way.
-    const QString roaming = QStandardPaths::writableLocation(
-        QStandardPaths::GenericConfigLocation);
-    return QDir::cleanPath(roaming + QStringLiteral("/Ua"));
+    // Match the Win32 build's layout: one "Ua" segment under %APPDATA%
+    // (= Roaming on Windows). Qt's QStandardPaths doesn't offer a value
+    // that reliably maps to Roaming without the "<org>/<app>" suffix, so on
+    // Windows we read %APPDATA% directly. Other OSes get the standard
+    // XDG / Library path with a "Ua" subfolder.
+#if defined(Q_OS_WIN)
+    const QString roaming = qEnvironmentVariable("APPDATA");
+    if (!roaming.isEmpty())
+        return QDir::cleanPath(roaming + QStringLiteral("/Ua"));
+#endif
+    const QString base = QStandardPaths::writableLocation(
+        QStandardPaths::GenericDataLocation);
+    return QDir::cleanPath(base + QStringLiteral("/Ua"));
 }
 
 QString promptsDir()

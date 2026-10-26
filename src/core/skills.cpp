@@ -47,13 +47,22 @@ bool extractSkill(const QString& dirName, const QString& skillsRoot)
 {
     const QString res = QStringLiteral(":/skills/") + dirName + QStringLiteral("/SKILL.md");
     QFile in(res);
-    if (!in.open(QIODevice::ReadOnly)) return false;
+    if (!in.open(QIODevice::ReadOnly)) {
+        qWarning() << "[skills] cannot open resource" << res;
+        return false;
+    }
 
     const QString outDir = QDir::cleanPath(skillsRoot + QLatin1Char('/') + dirName);
-    QDir().mkpath(outDir);
+    if (!QDir().mkpath(outDir)) {
+        qWarning() << "[skills] mkpath failed" << outDir;
+        return false;
+    }
     const QString outFile = QDir::cleanPath(outDir + QStringLiteral("/SKILL.md"));
 
-    return Injector::writeAtomic(outFile, in.readAll());
+    const QByteArray data = in.readAll();
+    const bool ok = Injector::writeAtomic(outFile, data);
+    if (!ok) qWarning() << "[skills] writeAtomic failed" << outFile << "data=" << data.size();
+    return ok;
 }
 
 const Item* itemWithSkills(const QString& itemId)
