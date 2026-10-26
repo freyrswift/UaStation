@@ -278,18 +278,22 @@ InstallState Injector::scan(const QString& itemId)
 InjectResult Injector::install(const QString& itemId, const QString& promptFile)
 {
     InjectResult r;
+    qInfo() << "[inject] install() itemId=" << itemId << "promptFile=" << promptFile;
     const Item* item = itemById(itemId);
     if (!item || item->targetRel.isEmpty()) {
+        qWarning() << "[inject] fail: unsupported item" << itemId;
         r.error = errText(Strings::ErrNoState);
         return r;
     }
     if (promptFile.isEmpty()) {
+        qWarning() << "[inject] fail: empty promptFile";
         r.error = errText(Strings::ErrNoPromptSel);
         return r;
     }
 
     bool ok = false;
     QByteArray prompt = readFile(promptFile, &ok);
+    qInfo() << "[inject] prompt read ok=" << ok << "size=" << prompt.size();
     if (!ok) { r.error = errText(Strings::ErrReadPrompt); return r; }
     stripBom(prompt);
     if (isUtf16(prompt)) { r.error = errText(Strings::ErrUtf16Prompt); return r; }
@@ -300,11 +304,13 @@ InjectResult Injector::install(const QString& itemId, const QString& promptFile)
     }
 
     const QString tp = targetPath(item->targetRel);
+    qInfo() << "[inject] target path=" << tp;
 
     // Check current state of the target
     bool read = false;
     QByteArray doc = readFile(tp, &read);
     const bool existed = QFileInfo::exists(tp);
+    qInfo() << "[inject] target existed=" << existed << "existing size=" << doc.size();
 
     // First-time inject: snapshot once (marker mode doesn't need per-call backups)
     if (!hasState(itemId)) {
@@ -313,7 +319,9 @@ InjectResult Injector::install(const QString& itemId, const QString& promptFile)
         ts.backupFile      = existed ? backup : QString();
         ts.originalExisted = existed;
         ts.installedAt     = QDateTime::currentMSecsSinceEpoch();
-        if (!saveState(itemId, ts)) { r.error = errText(Strings::ErrSaveState); return r; }
+        const bool saved = saveState(itemId, ts);
+        qInfo() << "[inject] saveState ok=" << saved << "stateFile=" << (configDir() + QStringLiteral("/state/") + itemId + QStringLiteral(".dat"));
+        if (!saved) { r.error = errText(Strings::ErrSaveState); return r; }
     }
 
     // Wrap + insert
@@ -327,7 +335,10 @@ InjectResult Injector::install(const QString& itemId, const QString& promptFile)
     }
 
     const QByteArray output = insertMarked(existed ? doc : QByteArray(), wrapped);
-    if (!writeAtomic(tp, output)) { r.error = errText(Strings::ErrWriteTarget); return r; }
+    qInfo() << "[inject] output size=" << output.size() << "contains marker=" << output.contains(kMarkerBegin);
+    const bool wrote = writeAtomic(tp, output);
+    qInfo() << "[inject] writeAtomic ok=" << wrote;
+    if (!wrote) { r.error = errText(Strings::ErrWriteTarget); return r; }
 
     r.ok = true;
     return r;

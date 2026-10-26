@@ -22,10 +22,12 @@ QString homeDir()
 
 QString configDir()
 {
-    // Use AppDataLocation; Qt gives us the <app>-scoped subpath because we set
-    // QGuiApplication::applicationName("Ua") before this is called.
-    const QString dir = QStandardPaths::writableLocation(QStandardPaths::AppDataLocation);
-    return QDir::cleanPath(dir);
+    // Match the Win32 build's layout: one "Ua" segment under %APPDATA%, not
+    // the Qt default "<orgName>/<appName>" which gives "Ua/Ua". Users carrying
+    // state from a previous Win32 Ua install find it in-place this way.
+    const QString roaming = QStandardPaths::writableLocation(
+        QStandardPaths::GenericConfigLocation);
+    return QDir::cleanPath(roaming + QStringLiteral("/Ua"));
 }
 
 QString promptsDir()

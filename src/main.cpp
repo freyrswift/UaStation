@@ -10,9 +10,37 @@
 #include <QQuickStyle>
 #include <QFontDatabase>
 #include <QDir>
+#include <QFile>
 #include <QIcon>
 #include <QLoggingCategory>
+#include <QStandardPaths>
+#include <QTextStream>
 #include <QWindow>
+#include <QMutex>
+#include <QDateTime>
+
+namespace {
+// Install a message handler that writes qInfo/qWarning/qDebug lines to a file
+// next to the exe. Needed because Ua.exe is a WIN32 GUI subsystem binary and
+// stderr is not attached to any console, so Start-Process redirects don't
+// capture anything.
+void logToFile(QtMsgType type, const QMessageLogContext&, const QString& msg) {
+    static QMutex lock;
+    QMutexLocker guard(&lock);
+    static QFile f(QCoreApplication::applicationDirPath() + QStringLiteral("/ua.log"));
+    static bool opened = f.open(QIODevice::Append | QIODevice::Text);
+    if (!opened) return;
+    QTextStream s(&f);
+    const char* lvl = type == QtDebugMsg    ? "DBG"
+                    : type == QtInfoMsg     ? "INF"
+                    : type == QtWarningMsg  ? "WRN"
+                    : type == QtCriticalMsg ? "CRT"
+                                            : "FTL";
+    s << '[' << QDateTime::currentDateTime().toString(Qt::ISODateWithMs) << "] "
+      << lvl << ' ' << msg << '\n';
+    f.flush();
+}
+} // namespace
 
 #include "core/app_controller.h"
 #include "core/settings.h"
@@ -25,6 +53,8 @@ void applyWindowEffects(QWindow* w, bool micaEnabled);
 
 int main(int argc, char* argv[])
 {
+    qInstallMessageHandler(logToFile);
+
     QApplication::setApplicationName(QStringLiteral("Ua"));
     QApplication::setApplicationDisplayName(QStringLiteral("Ua Toolbox"));
     QApplication::setOrganizationName(QStringLiteral("Ua"));
