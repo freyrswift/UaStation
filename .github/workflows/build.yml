@@ -41,6 +41,25 @@ jobs:
         shell: cmd
         run: cmake --build build --config Release --parallel
 
+      - name: Deploy Qt runtime
+        shell: pwsh
+        run: |
+          # msvc-dev-cmd resets PATH, so the POST_BUILD windeployqt hook in
+          # DeployWindows.cmake may not have found the tool. Run it here
+          # explicitly against the final exe so Qt core QML modules
+          # (QtQuick, QtQuick.Controls, …) land in build/qml/.
+          $qtBin = Split-Path (Get-Command qmake).Source
+          Write-Host "Qt bin: $qtBin"
+          & "$qtBin\windeployqt.exe" `
+            --release `
+            --no-compiler-runtime `
+            --no-system-d3d-compiler `
+            --no-opengl-sw `
+            --no-translations `
+            --no-system-dxc-compiler `
+            --qmldir qml `
+            build\Ua.exe
+
       - name: Package
         shell: pwsh
         run: |
