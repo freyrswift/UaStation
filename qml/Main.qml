@@ -35,9 +35,19 @@ Window {
     property bool   settingsMenuOpen: false
     property bool   disclaimerOpen: !Settings.disclaimerAccepted
     property string toastText: ""
+    property string searchFilter: ""
     property var    editorModel: app.editorItems
     property var    toolsModel:  app.toolsItems
     property var    promptsSnapshot: app.prompts
+    // Filter helper -- case-insensitive substring match over name + sub.
+    function filterItems(list) {
+        if (!root.searchFilter) return list
+        const q = root.searchFilter.toLowerCase()
+        return list.filter(function(it) {
+            return (it.name || "").toLowerCase().indexOf(q) >= 0 ||
+                   (it.sub  || "").toLowerCase().indexOf(q) >= 0
+        })
+    }
 
     Connections {
         target: app
@@ -112,19 +122,80 @@ Window {
 
         // Divider under the tab strip (mirrors the 1-pixel line in DrawTabs)
         Rectangle {
+            id: divider
             anchors { left: parent.left; right: parent.right; top: topStrip.bottom
                       topMargin: 14; leftMargin: 14; rightMargin: 14 }
             height: 1
             color: Theme.dark ? Qt.rgba(1,1,1,0.10) : Qt.rgba(0,0,0,0.06)
         }
 
-        // Two-column card grid (filtered by active tab)
+        // Search box: filters cards by name + sub, case-insensitive.
+        Rectangle {
+            id: searchBox
+            anchors { left: parent.left; right: parent.right; top: divider.bottom
+                      topMargin: 10; leftMargin: 14; rightMargin: 14 }
+            height: 30
+            radius: 6
+            color: Theme.dark ? Qt.rgba(1,1,1,0.05) : Qt.rgba(0,0,0,0.03)
+            border.width: 1
+            border.color: searchInput.activeFocus ? Theme.accent : Theme.stroke
+
+            IconGlyph {
+                id: searchIcon
+                anchors { left: parent.left; verticalCenter: parent.verticalCenter; leftMargin: 10 }
+                text: ""  // Search glyph
+                pixelSize: 12
+                color: Theme.sub
+            }
+            TextInput {
+                id: searchInput
+                anchors { left: searchIcon.right; right: clearBtn.left
+                          verticalCenter: parent.verticalCenter
+                          leftMargin: 8; rightMargin: 4 }
+                clip: true
+                color: Theme.text
+                font.pixelSize: 12
+                selectByMouse: true
+                onTextChanged: root.searchFilter = text
+                Text {
+                    anchors.verticalCenter: parent.verticalCenter
+                    visible: searchInput.text === ""
+                    text: Strings.lang === 0 ? "搜索工具..." : "Search tools..."
+                    color: Theme.sub
+                    font.pixelSize: 12
+                }
+            }
+            Rectangle {
+                id: clearBtn
+                anchors { right: parent.right; verticalCenter: parent.verticalCenter; rightMargin: 6 }
+                width: 20; height: 20; radius: 10
+                visible: searchInput.text !== ""
+                color: clearMa.containsMouse ? (Theme.dark ? Qt.rgba(1,1,1,0.08)
+                                                           : Qt.rgba(0,0,0,0.06))
+                                             : "transparent"
+                IconGlyph {
+                    anchors.centerIn: parent
+                    text: ""  // close glyph
+                    pixelSize: 10
+                    color: Theme.sub
+                }
+                MouseArea {
+                    id: clearMa
+                    anchors.fill: parent
+                    hoverEnabled: true
+                    cursorShape: Qt.PointingHandCursor
+                    onClicked: searchInput.text = ""
+                }
+            }
+        }
+
+        // Two-column card grid (filtered by active tab + search)
         GridView {
             id: content
             anchors {
-                top: topStrip.bottom; left: parent.left; right: parent.right
+                top: searchBox.bottom; left: parent.left; right: parent.right
                 bottom: statusBar.top
-                topMargin: 24; leftMargin: 14; rightMargin: 14; bottomMargin: 6
+                topMargin: 14; leftMargin: 14; rightMargin: 14; bottomMargin: 6
             }
             // GridView fits Math.floor(width / cellWidth) columns, so we must
             // make cellWidth × 2 <= width or the second column wraps to a new row.
@@ -132,7 +203,7 @@ Window {
             cellHeight: Theme.cardH + Theme.gap
             clip: true
             interactive: contentHeight > height
-            model: root.activeTab === 0 ? root.editorModel : root.toolsModel
+            model: root.filterItems(root.activeTab === 0 ? root.editorModel : root.toolsModel)
 
             delegate: Card {
                 width: content.cellWidth - Theme.gap

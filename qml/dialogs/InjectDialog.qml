@@ -8,8 +8,15 @@ Item {
 
     property string itemId: ""
     property var    item: itemId !== "" ? (app.items.find(it => it.id === itemId) || ({})) : ({})
-    property int    selectedPrompt: 0
-    property var    promptList: app.prompts
+    property var    promptList: itemId !== "" ? app.promptsFor(itemId) : []
+    // Default selection: prefer <itemId>.md, else first entry.
+    property int    selectedPrompt: {
+        const preferred = (itemId + ".md").toLowerCase()
+        for (let i = 0; i < promptList.length; i++) {
+            if (promptList[i].name.toLowerCase() === preferred) return i
+        }
+        return 0
+    }
     property bool   confirmUninstall: false
 
     Rectangle {
@@ -76,13 +83,48 @@ Item {
                     color: Theme.sub
                     font.pixelSize: 11
                 }
+                // Where this tool actually reads its instructions from, and how
+                // the change takes effect — both differ per product.
+                Text {
+                    width: 292
+                    visible: text !== ""
+                    text: root.item && root.item.targetRel ? "~/" + root.item.targetRel : ""
+                    color: Theme.sub
+                    opacity: 0.75
+                    font.pixelSize: 9
+                    elide: Text.ElideMiddle
+                }
+                // Phrasing guide (only some products ship one).
+                Rectangle {
+                    visible: root.item && root.item.hasTips === true
+                    height: 20
+                    width: tipLabel.implicitWidth + 16
+                    radius: 4
+                    color: tipMa.containsMouse ? Theme.surfaceAlt : "transparent"
+                    border.width: 1
+                    border.color: Theme.stroke
+                    Text {
+                        id: tipLabel
+                        anchors.centerIn: parent
+                        text: "使用技巧"
+                        color: Theme.accent
+                        font.pixelSize: 10
+                    }
+                    MouseArea {
+                        id: tipMa
+                        anchors.fill: parent
+                        hoverEnabled: true
+                        cursorShape: Qt.PointingHandCursor
+                        onClicked: app.openTip(root.itemId)
+                    }
+                }
             }
         }
 
         // Prompts list
         Text {
             id: promptsLabel
-            anchors { top: parent.top; left: parent.left; margins: 16; topMargin: 72 }
+            anchors { top: parent.top; left: parent.left; margins: 16; topMargin: 104 }
             text: (Strings.lang, Strings.t(Strings.SelectPrompt))
             color: Theme.sub
             font.pixelSize: 11
@@ -94,7 +136,7 @@ Item {
                 top: promptsLabel.bottom; left: parent.left; right: parent.right
                 margins: 16; topMargin: 6
             }
-            height: 240
+            height: 206
             clip: true
             model: root.promptList
             delegate: Rectangle {
@@ -153,7 +195,7 @@ Item {
                 onTriggered: {
                     const promptFile = root.promptList[root.selectedPrompt].fullPath
                     if (app.install(root.itemId, promptFile)) {
-                        app.showToast(root.item.name + (Strings.lang, Strings.t(Strings.InjectRestartHint)))
+                        app.showToast(root.item.name + " · " + (root.item.hint || (Strings.lang, Strings.t(Strings.InjectRestartHint))))
                         root.closeRequested()
                     }
                 }

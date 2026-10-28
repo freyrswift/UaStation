@@ -56,12 +56,21 @@ Rectangle {
             color: Theme.text
         }
 
-        // "Installed" indicator: green dot at the tile's bottom-right.
+        // Status indicator: colored dot at the tile's bottom-right.
+        // Green = installed OK, Orange = installed but host upgraded (needs reinstall),
+        // Yellow = detected but not installed, hidden if not detected.
         Rectangle {
-            visible: root.item && root.item.supported && root.item.state === 1
+            visible: root.item && root.item.supported && root.item.detected
             width: 10; height: 10; radius: 5
             anchors { right: parent.right; bottom: parent.bottom; rightMargin: -2; bottomMargin: -2 }
-            color: Theme.green
+            color: {
+                if (!root.item) return "#4CAF50"
+                if (root.item.state === 1) {
+                    if (root.item.upgraded) return "#F97316"
+                    return "#4CAF50"
+                }
+                return "#FF9800"
+            }
             border.width: 2
             border.color: root.color
         }
@@ -96,9 +105,10 @@ Rectangle {
             visible: text !== ""
             text: {
                 if (!root.item) return ""
-                if (root.item.sub && root.item.sub !== "") return root.item.sub
-                if (!root.item.supported) return ""
+                if (!root.item.supported) return root.item.sub || ""
                 if (!root.item.detected)  return (Strings.lang, Strings.t(Strings.ToolNotFound))
+                if (root.item.state === 1 && root.item.upgraded)
+                    return Strings.lang === 0 ? "宿主已升级，需重装" : "Host upgraded, reinstall"
                 switch (root.item.state) {
                 case 1:  return (Strings.lang, Strings.t(Strings.Injected))
                 case 2:  return (Strings.lang, Strings.t(Strings.FileHasContent))
