@@ -24,14 +24,21 @@ jobs:
           modules: qt5compat
           cache: true
 
+      - name: Set up MSVC
+        uses: ilammy/msvc-dev-cmd@v1
+        with:
+          arch: x64
+
       - name: Configure
-        shell: bash
-        run: |
-          cmake -S . -B build -G Ninja \
-            -DCMAKE_BUILD_TYPE=Release
+        shell: cmd
+        run: >
+          cmake -S . -B build -G Ninja
+          -DCMAKE_BUILD_TYPE=Release
+          -DCMAKE_C_COMPILER=cl
+          -DCMAKE_CXX_COMPILER=cl
 
       - name: Build
-        shell: bash
+        shell: cmd
         run: cmake --build build --config Release --parallel
 
       - name: Package
