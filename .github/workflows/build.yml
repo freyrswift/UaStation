@@ -2,37 +2,15 @@ name: Build
 
 on:
   push:
-    branches: [main, qt-port]
+    branches: [main]
     tags: ['v*']
   pull_request:
     branches: [main]
 
 jobs:
   build:
-    name: ${{ matrix.name }}
-    runs-on: ${{ matrix.os }}
-    strategy:
-      fail-fast: false
-      matrix:
-        include:
-          - name: windows-x64
-            os: windows-latest
-            qt_arch: win64_msvc2022_64
-            qt_host: windows
-            artifact: Ua-windows-x64
-            exe_path: build/Release/Ua.exe
-          - name: linux-x64
-            os: ubuntu-22.04
-            qt_arch: linux_gcc_64
-            qt_host: linux
-            artifact: Ua-linux-x64
-            exe_path: build/Ua
-          - name: macos-arm64
-            os: macos-14
-            qt_arch: clang_64
-            qt_host: mac
-            artifact: Ua-macos-arm64
-            exe_path: build/Ua.app
+    name: windows-x64
+    runs-on: windows-latest
 
     steps:
       - uses: actions/checkout@v4
@@ -41,20 +19,10 @@ jobs:
         uses: jurplel/install-qt-action@v4
         with:
           version: 6.8.3
-          host: ${{ matrix.qt_host }}
-          arch: ${{ matrix.qt_arch }}
+          host: windows
+          arch: win64_msvc2022_64
           modules: qt5compat
           cache: true
-
-      - name: Install Linux deps
-        if: runner.os == 'Linux'
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y \
-            build-essential ninja-build \
-            libgl1-mesa-dev libglu1-mesa-dev \
-            libxkbcommon-dev libwayland-dev \
-            libfontconfig1-dev libdbus-1-dev
 
       - name: Configure
         shell: bash
@@ -66,38 +34,16 @@ jobs:
         shell: bash
         run: cmake --build build --config Release --parallel
 
-      - name: Package (Windows)
-        if: runner.os == 'Windows'
+      - name: Package
         shell: pwsh
         run: |
           cmake --install build --config Release --prefix dist
-          Compress-Archive -Path dist\* -DestinationPath ${{ matrix.artifact }}.zip
-
-      - name: Package (macOS)
-        if: runner.os == 'macOS'
-        run: |
-          cd build && cpack -G DragNDrop
-
-      - name: Package (Linux - tar + AppImage)
-        if: runner.os == 'Linux'
-        run: |
-          cd build && cpack -G TGZ
-          # AppImage
-          wget -q https://github.com/linuxdeploy/linuxdeploy/releases/download/continuous/linuxdeploy-x86_64.AppImage -O /tmp/linuxdeploy
-          wget -q https://github.com/linuxdeploy/linuxdeploy-plugin-qt/releases/download/continuous/linuxdeploy-plugin-qt-x86_64.AppImage -O /tmp/linuxdeploy-plugin-qt
-          chmod +x /tmp/linuxdeploy /tmp/linuxdeploy-plugin-qt
-          cd .. && cmake --install build --prefix AppDir/usr
-          QML_SOURCES_PATHS=qml /tmp/linuxdeploy --appdir AppDir --plugin qt --output appimage || true
+          Compress-Archive -Path dist\* -DestinationPath Ua-windows-x64.zip
 
       - uses: actions/upload-artifact@v4
         with:
-          name: ${{ matrix.artifact }}
-          path: |
-            ${{ matrix.artifact }}.zip
-            build/Ua-*.tar.gz
-            build/Ua-*.dmg
-            Ua*.AppImage
-          if-no-files-found: ignore
+          name: Ua-windows-x64
+          path: Ua-windows-x64.zip
 
   release:
     needs: build
