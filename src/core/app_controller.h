@@ -14,6 +14,8 @@ QT_END_NAMESPACE
 
 namespace ua::core {
 
+struct Item;
+
 class AppController : public QObject
 {
     Q_OBJECT
@@ -46,6 +48,16 @@ public slots:
     bool install(const QString& itemId, const QString& promptFile);
     bool uninstall(const QString& itemId);
 
+    // Return the single prompt appropriate for a given tool.
+    QVariantList promptsFor(const QString& itemId);
+
+    // Environment check: detailed status for each editor tool.
+    QVariantList envCheck();
+
+    // Per-product usage guide: generated from the item's real paths + notes,
+    // written to <configDir>/docs/tips-<id>.txt and opened.
+    void openTip(const QString& itemId);
+
     // Skill actions
     QVariantList skills();
     bool removeSkill(const QString& skillDirName);
@@ -61,15 +73,26 @@ signals:
     void toast(const QString& text);
     void errorRaised(const QString& text);
     void showMainWindowRequested();
+    void installProgress(int current, int total, const QString& path);
 
 private:
     QVariantList buildItemsSnapshot() const;
+    // Cached snapshot: rebuilt on first access and after install/uninstall.
+    const QVariantList& cachedSnapshot() const;
+    void invalidateSnapshot();
     void setupTray();
     void showMainWindow();
+    // Renders the bundled guide template for one product.
+    QString tipFor(const Item& item) const;
+    // Writes every product's guide under <configDir>/docs; returns the folder.
+    QString syncTips();
+    static QString toolExecutable(const QString& itemId);
 
     QSystemTrayIcon* m_tray = nullptr;
     QMenu*           m_trayMenu = nullptr;
     QWindow*         m_mainWindow = nullptr;
+    mutable QVariantList m_snapshotCache;
+    mutable bool         m_snapshotDirty = true;
 };
 
 } // namespace ua::core
