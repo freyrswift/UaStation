@@ -32,25 +32,31 @@ add_custom_command(TARGET Ua POST_BUILD
     VERBATIM
 )
 
-# Install rule for `cmake --install`.  Earlier version used
-# `install(DIRECTORY ... FILES_MATCHING)` which, with the Visual Studio
-# generator, dumped every intermediate ALL_BUILD/ZERO_CHECK/*_autogen/
-# directory into the install prefix.  Instead, enumerate exactly what we
-# want: the exe, Qt DLLs at the top level, and the plugin + QML module
-# directories that windeployqt dropped next to Ua.exe.
-install(PROGRAMS $<TARGET_FILE:Ua> DESTINATION .)
+# Install rules for `cmake --install`.  Ua.exe itself ships via the
+# `install(TARGETS)` call in the top-level CMakeLists.
+#
+# windeployqt drops Qt6*.dll next to Ua.exe plus a cluster of plugin
+# directories (platforms/, iconengines/, …) and the core QML modules
+# (qml/QtQuick/, qml/QtQml/, …).  Earlier versions used `install(DIRECTORY ...
+# FILES_MATCHING)` to copy *.dll, which also dragged every intermediate
+# CMakeFiles/, Ua_autogen/, UaApp/ build artefact into the install prefix.
+# Enumerate exactly what we want instead.
 
-install(DIRECTORY $<TARGET_FILE_DIR:Ua>/
-    DESTINATION .
-    FILES_MATCHING
-        PATTERN "*.dll"
-        PATTERN "*.exe" EXCLUDE
-)
+# Qt6 core DLLs at the install root.
+install(CODE "
+    file(GLOB qt_dlls \"$<TARGET_FILE_DIR:Ua>/Qt6*.dll\")
+    file(INSTALL \${qt_dlls} DESTINATION \"\${CMAKE_INSTALL_PREFIX}\")
+")
 
+# Plugin + QML module directories, each only if present on disk.
+#  - platforms/iconengines/… come from windeployqt
+#  - qml/ holds the Qt core QML modules (QtQuick, QtQuick/Controls, …)
+#  - UaApp/ is this app's own QML module laid out by qt_add_qml_module;
+#    it carries qmldir + .qmltypes next to the embedded qmlcache
 foreach(subdir IN ITEMS
         platforms iconengines imageformats
         networkinformation tls styles generic
-        UaApp qml)
+        qml UaApp)
     install(DIRECTORY $<TARGET_FILE_DIR:Ua>/${subdir}
         DESTINATION .
         OPTIONAL

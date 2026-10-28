@@ -41,16 +41,41 @@ jobs:
         shell: cmd
         run: cmake --build build --config Release --parallel
 
-      - name: Package
+      - name: Install
+        shell: pwsh
+        run: cmake --install build --config Release --prefix dist
+
+      - name: Package as single self-extracting exe (7-Zip SFX)
         shell: pwsh
         run: |
-          cmake --install build --config Release --prefix dist
-          Compress-Archive -Path dist\* -DestinationPath Ua-windows-x64.zip
+          # 7z is pre-installed on windows-latest; package dist/ as .7z then
+          # prepend the console-free SFX stub so the result is a single exe
+          # that unpacks to %TEMP%\Ua and runs Ua.exe (no visible extractor UI).
+          7z a -mx=9 -r Ua.7z .\dist\*
+
+          # Minimal SFX config: tell 7-Zip SFX to extract silently and launch Ua.exe.
+          @'
+          ;!@Install@!UTF-8!
+          GUIMode="2"
+          RunProgram="Ua.exe"
+          ;!@InstallEnd@!
+          '@ | Set-Content -Encoding Ascii config.txt
+
+          # Locate 7-Zip's SFX stub (console-free GUI variant).
+          $sfx = Join-Path (Split-Path (Get-Command 7z).Source) '7z.sfx'
+          if (-not (Test-Path $sfx)) {
+            # Fallback to Program Files install
+            $sfx = 'C:\Program Files\7-Zip\7z.sfx'
+          }
+          Write-Host "Using SFX stub: $sfx"
+
+          cmd /c copy /b "$sfx" + config.txt + Ua.7z Ua-windows-x64.exe
+          Write-Host "Final size: $((Get-Item Ua-windows-x64.exe).Length / 1MB) MB"
 
       - uses: actions/upload-artifact@v4
         with:
           name: Ua-windows-x64
-          path: Ua-windows-x64.zip
+          path: Ua-windows-x64.exe
 
   release:
     needs: build

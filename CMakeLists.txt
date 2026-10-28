@@ -177,7 +177,10 @@ include(GNUInstallDirs)
 
 install(TARGETS Ua
     BUNDLE  DESTINATION .
-    RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR}
+    # Windows ships Qt DLLs next to Ua.exe, so the exe sits at the install root;
+    # a bin/ layout would need PATH gymnastics to find them. macOS/Linux keep
+    # the conventional ${CMAKE_INSTALL_BINDIR} layout.
+    RUNTIME DESTINATION $<IF:$<PLATFORM_ID:Windows>,.,${CMAKE_INSTALL_BINDIR}>
 )
 
 # windeployqt / macdeployqt are driven from CI; see cmake/Deploy*.cmake
