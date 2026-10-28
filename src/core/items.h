@@ -36,6 +36,9 @@ struct Item {
     bool    isSkillsManager = false; // Special-case: opens Skills manager, not a URL
     int     nameId = -1;    // Strings::StringId; -1 keeps `name` as-is
     int     subId  = -1;    // Strings::StringId; -1 keeps `sub` as-is
+    int     hintId = -1;    // Strings::StringId: how the change takes effect
+    int     maxChars = 0;   // hard cap in characters (0 = no limit)
+    bool    hidden = false; // Data kept (install/tips still work), card not listed
 };
 
 enum class SkillCategory : int {

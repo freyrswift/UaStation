@@ -10,10 +10,27 @@
 
     <!-- Shared prompt (lives in the user's writable prompts/ at runtime via Prompts::extractEmbedded) -->
     <file alias="prompts/Ua.md">prompts/Ua.md</file>
+    <file alias="prompts/workbuddy.md">prompts/workbuddy.md</file>
 
-    <!-- SVG logos (currently we only expose claude + deepseek; the rest stay on disk for later) -->
+    <!-- Usage guide, extracted to <configDir>/docs on demand -->
+    <file alias="docs/tips.txt">docs/tips-template.txt</file>
+
+    <!-- Tool logos: current official brand marks (SVG where the vendor ships one,
+         PNG for ZCode / WorkBuddy which only publish raster or filter-heavy SVG) -->
     <file alias="logos/claude.svg">resources/logos/claudecode-color.svg</file>
     <file alias="logos/deepseek.svg">resources/logos/deepseek-color.svg</file>
+    <file alias="logos/codex.svg">resources/logos/codex-color.svg</file>
+    <file alias="logos/cursor.svg">resources/logos/cursor-color.svg</file>
+    <file alias="logos/windsurf.svg">resources/logos/windsurf-color.svg</file>
+    <file alias="logos/zcode.png">resources/logos/zcode-color.png</file>
+    <file alias="logos/opencode.svg">resources/logos/opencode-color.svg</file>
+    <file alias="logos/workbuddy.png">resources/logos/workbuddy-color.png</file>
+    <file alias="logos/gemini.svg">resources/logos/gemini-color.svg</file>
+    <file alias="logos/qwen.svg">resources/logos/qwen-color.svg</file>
+    <file alias="logos/trae.svg">resources/logos/trae-color.svg</file>
+    <file alias="logos/codebuddy.svg">resources/logos/codebuddy-color.svg</file>
+    <file alias="logos/cline.svg">resources/logos/cline-color.svg</file>
+    <file alias="logos/copilot.svg">resources/logos/copilot-color.svg</file>
   </qresource>
   <qresource prefix="/skills">
     <file alias="ai-llm-security/SKILL.md">resources/skills/ai-llm-security/SKILL.md</file>
