@@ -63,6 +63,8 @@ target_sources(Ua PRIVATE
     src/core/paths.cpp
     src/core/injector.h
     src/core/injector.cpp
+    src/core/install_plan.h
+    src/core/install_plan.cpp
     src/core/prompts.h
     src/core/prompts.cpp
     src/core/skills.h
