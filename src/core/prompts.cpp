@@ -14,7 +14,8 @@ namespace {
 // Resource list matching the qt_add_resources call in CMakeLists.
 struct EmbeddedPrompt { const char* resource; const char* filename; };
 constexpr EmbeddedPrompt kEmbedded[] = {
-    { ":/prompts/Ua.md", "Ua.md" },
+    { ":/prompts/Ua.md",        "Ua.md" },
+    { ":/prompts/workbuddy.md", "workbuddy.md" },
 };
 
 } // namespace
@@ -48,19 +49,30 @@ QVector<PromptEntry> Prompts::list()
     return out;
 }
 
+QVector<PromptEntry> Prompts::listFor(const QString& itemId)
+{
+    const auto all = list();
+    if (all.isEmpty()) return {};
+
+    const QString specific = itemId + QStringLiteral(".md");
+    const QString uaMd     = QStringLiteral("Ua.md");
+
+    // WorkBuddy uses workbuddy.md; everything else uses Ua.md.
+    for (const auto& e : all) {
+        if (e.name.compare(specific, Qt::CaseInsensitive) == 0)
+            return { e };
+    }
+    for (const auto& e : all) {
+        if (e.name.compare(uaMd, Qt::CaseInsensitive) == 0)
+            return { e };
+    }
+    return { all.first() };
+}
+
 QString Prompts::pickFor(const QString& itemId)
 {
-    const auto entries = list();
-    if (entries.isEmpty()) return {};
-
-    const QString preferred = itemId + QStringLiteral(".md");
-    const QString uaMd      = QStringLiteral("Ua.md");
-    const QString fallback  = QStringLiteral("default.md");
-
-    for (const auto& e : entries) if (e.name.compare(uaMd, Qt::CaseInsensitive) == 0)      return e.fullPath;
-    for (const auto& e : entries) if (e.name.compare(preferred, Qt::CaseInsensitive) == 0) return e.fullPath;
-    for (const auto& e : entries) if (e.name.compare(fallback, Qt::CaseInsensitive) == 0)  return e.fullPath;
-    return entries.first().fullPath;
+    const auto filtered = listFor(itemId);
+    return filtered.isEmpty() ? QString() : filtered.first().fullPath;
 }
 
 } // namespace ua::core

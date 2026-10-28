@@ -125,6 +125,17 @@ constexpr std::array<std::array<const char*, 2>, Strings::_Count> kTable {{
     { "共 %1 / %2 个 skill",   "%1 of %2 skills" },
     { "%1 个工具",             "%1 tools" },
     { "没有匹配的 skill",      "No matching skills" },
+    { "工作台",                 "Workbench" },
+    { "Seep 逆向工作台",        "Seep Reverse Workbench" },
+    { "AI 驱动的逆向工程平台",   "AI-driven reverse engineering platform" },
+    { "工作台文档",             "Documentation" },
+    { "部署手册与使用指南",      "Deployment manual and user guide" },
+    { "MCP 服务",              "MCP Server" },
+    { "逆向分析 MCP 工具集",    "Reverse analysis MCP toolkit" },
+    { "新建会话后生效",         "Takes effect in a new session" },
+    { "重新加载窗口后生效",     "Reload the window to apply" },
+    { "重启应用后生效",         "Restart the app to apply" },
+    { "内容超出该工具的长度上限", "Content exceeds this tool's length limit" },
 }};
 
 constexpr const char* kLangSettingsKey = "ui/lang";

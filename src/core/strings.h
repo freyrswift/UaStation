@@ -59,6 +59,12 @@ public:
         StatusInstalled, StatusSkills,
         ConfirmUninstall, UpdateConfirm,
         SkillCountFmt, SkillToolCountFmt, SkillNoMatch,
+        TabSeep,
+        SeepWorkbench, SeepWorkbenchSub,
+        SeepDocs, SeepDocsSub,
+        SeepMcp, SeepMcpSub,
+        HintNewSession, HintReloadWindow, HintRestartApp,
+        ErrTooLong,
         _Count,
     };
     Q_ENUM(StringId)

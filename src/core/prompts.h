@@ -22,6 +22,10 @@ public:
     // List all *.md files in promptsDir(), sorted by name.
     static QVector<PromptEntry> list();
 
+    // List the single prompt file appropriate for a given tool id.
+    // WorkBuddy gets workbuddy.md, everything else gets Ua.md.
+    static QVector<PromptEntry> listFor(const QString& itemId);
+
     // Resolve the preferred prompt for a given tool id: <id>.md > default.md > first.
     static QString pickFor(const QString& itemId);
 };
