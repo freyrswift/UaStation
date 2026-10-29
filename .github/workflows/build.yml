@@ -58,7 +58,7 @@ jobs:
             --no-translations `
             --no-system-dxc-compiler `
             --qmldir qml `
-            build\Ua.exe
+            build\ua.exe
 
       - name: Package
         shell: pwsh
@@ -88,4 +88,4 @@ jobs:
         uses: softprops/action-gh-release@v2
         with:
           files: artifacts/**/*
-          body: "Download Ua-windows-x64.zip, extract, double-click Ua.exe."
+          body: "Download Ua-windows-x64.zip, extract, double-click ua.exe."

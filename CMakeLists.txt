@@ -37,6 +37,7 @@ find_package(Qt6 6.5 REQUIRED COMPONENTS
     Svg
     Network
     Widgets      # QSystemTrayIcon + QMenu for the tray context menu
+    Concurrent   # QtConcurrent::run so install/uninstall doesn't block the UI
 )
 
 qt_standard_project_setup(REQUIRES 6.5)
@@ -52,6 +53,10 @@ qt_policy(SET QTP0004 NEW)
 qt_add_executable(Ua WIN32 MACOSX_BUNDLE
     src/main.cpp
 )
+
+# The CMake target stays "Ua" so install plan and QML module keep working,
+# but the on-disk executable is lowercase "ua.exe".
+set_target_properties(Ua PROPERTIES OUTPUT_NAME "ua")
 
 # Core (cross-platform) sources
 target_sources(Ua PRIVATE
@@ -129,6 +134,7 @@ qt_add_qml_module(Ua
         qml/components/SettingsMenu.qml
         qml/components/Toast.qml
         qml/components/IconGlyph.qml
+        qml/components/InstallProgressBar.qml
         qml/dialogs/InjectDialog.qml
         qml/dialogs/SkillsManager.qml
         qml/dialogs/AboutCard.qml
@@ -156,6 +162,7 @@ target_link_libraries(Ua PRIVATE
     Qt6::Svg
     Qt6::Network
     Qt6::Widgets
+    Qt6::Concurrent
 )
 
 target_compile_definitions(Ua PRIVATE
