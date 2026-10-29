@@ -445,11 +445,54 @@ InstallPlan planFor(const Item& item)
         return plan;
     }
 
+    if (item.id == QLatin1String("doubao")) {
+        // Doubao data lives under %LOCALAPPDATA%\Doubao\User Data\Default\
+        // .doubao\agent_mode\workspace\.user_skills — never ~/.doubao (that's
+        // a stray dir earlier bugs may have created).
+        const QString local = qEnvironmentVariable("LOCALAPPDATA").trimmed();
+        if (local.isEmpty()) return plan;  // Not supported off-Windows.
+
+        QString skillsRoot = qEnvironmentVariable("DOUBAO_USER_SKILLS").trimmed();
+        if (skillsRoot.isEmpty()) {
+            skillsRoot = QDir::cleanPath(
+                local + QStringLiteral("/Doubao/User Data/Default/.doubao/agent_mode/workspace/.user_skills"));
+        }
+
+        // Doubao doesn't honor an AGENTS.md style marker block; it reads
+        // user_skills/<name>/SKILL.md entries. Write a single Ua entry.
+        plan.targets.push_back({
+            QDir::cleanPath(skillsRoot + QStringLiteral("/ua-doubao/SKILL.md")),
+            TargetKind::WholeFile
+        });
+
+        plan.skillsDir = skillsRoot;
+        return plan;
+    }
+
+    // Generic branch: env-var override wins over the default ~/.<tool>/ path.
+    // When set, we rebase both targetRel and skillsDirRel onto the env root.
+    const QString envRoot = toolHomeOverride(item.id);
+
+    auto rebase = [&](const QString& rel) -> QString {
+        if (rel.isEmpty()) return {};
+        QString r = rel;
+        r.replace(QLatin1Char('\\'), QLatin1Char('/'));
+        if (envRoot.isEmpty()) {
+            return QDir::cleanPath(homeDir() + QLatin1Char('/') + r);
+        }
+        // Strip the first segment (e.g. ".codex/AGENTS.md" -> "AGENTS.md")
+        // because envRoot already points at the tool's root dir.
+        const int slash = r.indexOf(QLatin1Char('/'));
+        const QString tail = slash < 0 ? QString() : r.mid(slash + 1);
+        return tail.isEmpty() ? envRoot
+                              : QDir::cleanPath(envRoot + QLatin1Char('/') + tail);
+    };
+
     if (!item.targetRel.isEmpty()) {
-        plan.targets.push_back({targetPath(item.targetRel), TargetKind::Marked});
+        plan.targets.push_back({rebase(item.targetRel), TargetKind::Marked});
     }
     if (!item.skillsDirRel.isEmpty()) {
-        plan.skillsDir = skillsDir(item.skillsDirRel);
+        plan.skillsDir = rebase(item.skillsDirRel);
     }
     return plan;
 }

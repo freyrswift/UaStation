@@ -61,7 +61,7 @@ public slots:
     // Skill actions
     QVariantList skills();
     bool removeSkill(const QString& skillDirName);
-    void openSkillsFolder();
+    void openSkillsFolder(const QString& itemId = QString());
 
     // Lifecycle
     void showToast(const QString& text);
@@ -74,6 +74,8 @@ signals:
     void errorRaised(const QString& text);
     void showMainWindowRequested();
     void installProgress(int current, int total, const QString& path);
+    void installStarted(const QString& displayName, bool uninstalling);
+    void installFinished();
 
 private:
     QVariantList buildItemsSnapshot() const;

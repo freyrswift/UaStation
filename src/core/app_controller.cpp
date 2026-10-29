@@ -13,8 +13,11 @@
 #include <QCoreApplication>
 #include <QDesktopServices>
 #include <QDir>
+#include <QEventLoop>
 #include <QFile>
 #include <QFileInfo>
+#include <QFuture>
+#include <QFutureWatcher>
 #include <QGuiApplication>
 #include <QIcon>
 #include <QMenu>
@@ -22,6 +25,7 @@
 #include <QUrl>
 #include <QVariantMap>
 #include <QWindow>
+#include <QtConcurrent/QtConcurrent>
 
 namespace ua::core {
 
@@ -30,14 +34,9 @@ namespace {
 // Products that ship a usage guide.
 bool hasTip(const QString& id)
 {
-    return id == QLatin1String("claude")
-        || id == QLatin1String("deepseek")
-        || id == QLatin1String("workbuddy")
-        || id == QLatin1String("codex")
-        || id == QLatin1String("cursor")
-        || id == QLatin1String("windsurf")
-        || id == QLatin1String("zcode")
-        || id == QLatin1String("opencode");
+    // All Editor-group tools with a real injection target get a tip page.
+    const Item* it = itemById(id);
+    return it && it->group == ItemGroup::Editor && !it->targetRel.isEmpty();
 }
 
 // Product-specific paragraphs for the template-driven guides.
@@ -175,8 +174,8 @@ QVariantList AppController::buildItemsSnapshot() const
         m[QStringLiteral("hint")]            = it.hintId >= 0 ? strings->get(static_cast<Strings::StringId>(it.hintId)) : QString();
         m[QStringLiteral("hasTips")]         = hasTip(it.id);
         m[QStringLiteral("hidden")]          = it.hidden;
-        m[QStringLiteral("supported")]       = !it.targetRel.isEmpty();
-        m[QStringLiteral("detected")]        = toolDetected(it.targetRel);
+        m[QStringLiteral("supported")]       = !it.targetRel.isEmpty() || it.id == QLatin1String("doubao");
+        m[QStringLiteral("detected")]        = toolDetectedById(it.id);
         const auto st = Injector::scan(it.id);
         m[QStringLiteral("state")]           = static_cast<int>(st);
         m[QStringLiteral("upgraded")]        = (st == InstallState::Installed) && Injector::hostUpgraded(it.id);
@@ -264,7 +263,7 @@ QVariantList AppController::envCheck()
 
         const QString name = it.nameId >= 0
             ? strings->get(static_cast<Strings::StringId>(it.nameId)) : it.name;
-        const bool detected = toolDetected(it.targetRel);
+        const bool detected = toolDetectedById(it.id);
         const QString target = targetPath(it.targetRel);
         const bool targetExists = QFileInfo::exists(target);
         const bool targetWritable = targetExists
@@ -287,7 +286,14 @@ QVariantList AppController::envCheck()
             rel.replace(QLatin1Char('\\'), QLatin1Char('/'));
             const int slash = rel.indexOf(QLatin1Char('/'));
             if (slash > 0) {
-                installDir = homeDir() + QLatin1Char('/') + rel.left(slash);
+                QString path = rel.left(slash);
+                // XDG-style paths like ".config/opencode/..." need two segments:
+                // ".config" alone isn't the tool's dir.
+                if (path == QLatin1String(".config")) {
+                    const int slash2 = rel.indexOf(QLatin1Char('/'), slash + 1);
+                    if (slash2 > 0) path = rel.left(slash2);
+                }
+                installDir = homeDir() + QLatin1Char('/') + path;
             }
         }
 
@@ -318,7 +324,6 @@ QVariantList AppController::envCheck()
 void AppController::refreshStates()
 {
     invalidateSnapshot();
-    invalidateSnapshot();
     emit itemsChanged();
 }
 
@@ -338,9 +343,16 @@ void AppController::revealTargetDir(const QString& itemId)
     const Item* it = itemById(itemId);
     if (!it) return;
     const QString full = targetPath(it->targetRel);
-    const QFileInfo info(full);
-    QDir().mkpath(info.absolutePath());
-    QDesktopServices::openUrl(QUrl::fromLocalFile(info.absolutePath()));
+    const QString dir = QFileInfo(full).absolutePath();
+    // Don't mkpath a non-existent target dir — that would create an empty
+    // config folder and make the tool look installed on the next scan.
+    if (!QFileInfo::exists(dir)) {
+        emit errorRaised(Strings::instance()->lang() == Strings::CN
+            ? QStringLiteral("该工具还没安装")
+            : QStringLiteral("Tool not installed"));
+        return;
+    }
+    QDesktopServices::openUrl(QUrl::fromLocalFile(dir));
 }
 
 
@@ -436,6 +448,12 @@ QString AppController::syncTips()
 
 void AppController::openTip(const QString& itemId)
 {
+    if (!hasTip(itemId)) {
+        emit errorRaised(Strings::instance()->lang() == Strings::CN
+            ? QStringLiteral("该工具暂无使用技巧")
+            : QStringLiteral("No tips available for this tool"));
+        return;
+    }
     syncTips();
     const Item* it = itemById(itemId);
     const QString path = configDir() + QStringLiteral("/docs/tips-")
@@ -444,24 +462,45 @@ void AppController::openTip(const QString& itemId)
     QDesktopServices::openUrl(QUrl::fromLocalFile(path));
 }
 
+namespace {
+
+QString itemDisplayName(const QString& itemId)
+{
+    const Item* it = itemById(itemId);
+    if (!it) return itemId;
+    return it->nameId >= 0
+        ? Strings::instance()->get(static_cast<Strings::StringId>(it->nameId))
+        : it->name;
+}
+
+// Run `fn` on a worker thread, keeping the UI event loop spinning so progress
+// signals emitted from the worker reach QML via queued connections. Returns
+// the InjectResult once the worker finishes.
+template <typename Fn>
+InjectResult runInWorker(QObject* parent, Fn fn)
+{
+    QFutureWatcher<InjectResult> watcher;
+    watcher.setParent(parent);
+    QEventLoop loop;
+    QObject::connect(&watcher, &QFutureWatcherBase::finished, &loop, &QEventLoop::quit);
+    auto future = QtConcurrent::run(std::move(fn));
+    watcher.setFuture(future);
+    loop.exec();
+    return future.result();
+}
+
+} // namespace
+
 bool AppController::install(const QString& itemId, const QString& promptFile)
 {
-    // Injector owns the whole install now: every target file in the product's
-    // plan plus that product's skill packs and config switches.
-    // Nudge a toast + paint before the GUI thread blocks inside Injector::install()
-    // so the user at least sees "patching..." instead of a frozen window.
-    const Item* it = itemById(itemId);
-    const QString displayName = it ? (it->nameId >= 0
-                                      ? Strings::instance()->get(static_cast<Strings::StringId>(it->nameId))
-                                      : it->name)
-                                   : itemId;
-    const QString cn = Strings::instance()->lang() == Strings::CN
-                       ? QStringLiteral("正在为 %1 应用补丁...").arg(displayName)
-                       : QStringLiteral("Patching %1...").arg(displayName);
-    emit toast(cn);
-    QCoreApplication::processEvents();
+    const QString displayName = itemDisplayName(itemId);
+    emit installStarted(displayName, /*uninstalling=*/false);
 
-    const auto r = Injector::install(itemId, promptFile);
+    const auto r = runInWorker(this, [itemId, promptFile]() {
+        return Injector::install(itemId, promptFile);
+    });
+
+    emit installFinished();
     invalidateSnapshot();
     emit itemsChanged();
     if (!r.ok) emit errorRaised(r.error);
@@ -470,7 +509,14 @@ bool AppController::install(const QString& itemId, const QString& promptFile)
 
 bool AppController::uninstall(const QString& itemId)
 {
-    const auto r = Injector::uninstall(itemId);
+    const QString displayName = itemDisplayName(itemId);
+    emit installStarted(displayName, /*uninstalling=*/true);
+
+    const auto r = runInWorker(this, [itemId]() {
+        return Injector::uninstall(itemId);
+    });
+
+    emit installFinished();
     invalidateSnapshot();
     emit itemsChanged();
     if (!r.ok) emit errorRaised(r.error);
@@ -498,15 +544,37 @@ bool AppController::removeSkill(const QString& skillDirName)
     return n > 0;
 }
 
-void AppController::openSkillsFolder()
+void AppController::openSkillsFolder(const QString& itemId)
 {
+    // Open the skills folder of a specific tool when itemId is given;
+    // fall back to the first tool with a skillsDirRel otherwise.
+    auto openIfValid = [](const QString& dir) {
+        if (dir.isEmpty() || !QFileInfo::exists(dir)) return false;
+        QDesktopServices::openUrl(QUrl::fromLocalFile(dir));
+        return true;
+    };
+
+    if (!itemId.isEmpty()) {
+        if (const Item* it = itemById(itemId)) {
+            if (!it->skillsDirRel.isEmpty()) {
+                const QString dir = skillsDir(it->skillsDirRel);
+                if (openIfValid(dir)) return;
+                emit errorRaised(Strings::instance()->lang() == Strings::CN
+                    ? QStringLiteral("该工具还没有技能，先点安装")
+                    : QStringLiteral("No skills installed yet — install first"));
+                return;
+            }
+        }
+    }
+
     for (const Item& it : allItems()) {
         if (it.skillsDirRel.isEmpty()) continue;
         const QString dir = skillsDir(it.skillsDirRel);
-        QDir().mkpath(dir);
-        QDesktopServices::openUrl(QUrl::fromLocalFile(dir));
-        return;
+        if (openIfValid(dir)) return;
     }
+    emit errorRaised(Strings::instance()->lang() == Strings::CN
+        ? QStringLiteral("还没有安装任何技能")
+        : QStringLiteral("No skills installed yet"));
 }
 
 void AppController::showToast(const QString& text)

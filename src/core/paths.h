@@ -42,4 +42,15 @@ QString skillsDir(QString relative);
 // is how we detect that the tool itself is installed. Mirrors ToolDetected().
 bool toolDetected(QString relative);
 
+// Resolve an environment-variable override for a given tool's root dir.
+// Returns the resolved absolute path if any of the tool's env vars is set
+// (e.g. CODEX_HOME, CLAUDE_CONFIG_DIR), otherwise an empty string. For
+// Doubao, resolves DOUBAO_USER_SKILLS or the %LOCALAPPDATA%\Doubao\... root.
+QString toolHomeOverride(const QString& itemId);
+
+// Per-tool detection: honors env-var overrides and per-tool special cases
+// (Doubao lives in %LOCALAPPDATA%\Doubao\..., not ~/.doubao). Falls back to
+// the relative-path heuristic in toolDetected().
+bool toolDetectedById(const QString& itemId);
+
 } // namespace ua::core
