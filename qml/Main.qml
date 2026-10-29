@@ -39,6 +39,14 @@ Window {
     property var    editorModel: app.editorItems
     property var    toolsModel:  app.toolsItems
     property var    promptsSnapshot: app.prompts
+
+    // Install/uninstall progress overlay state
+    property bool   installInProgress: false
+    property string installItemName: ""
+    property string installCurrentPath: ""
+    property int    installCurrent: 0
+    property int    installTotal: 0
+    property bool   installUninstalling: false
     // Filter helper -- case-insensitive substring match over name + sub.
     function filterItems(list) {
         if (!root.searchFilter) return list
@@ -58,6 +66,22 @@ Window {
         function onPromptsChanged()  { root.promptsSnapshot = app.prompts }
         function onToast(text)       { root.showToast(text) }
         function onErrorRaised(text) { root.showToast(text) }
+        function onInstallStarted(displayName, uninstalling) {
+            root.installItemName = displayName
+            root.installUninstalling = uninstalling
+            root.installCurrent = 0
+            root.installTotal = 1
+            root.installCurrentPath = ""
+            root.installInProgress = true
+        }
+        function onInstallProgress(current, total, path) {
+            root.installCurrent = current
+            root.installTotal = total
+            root.installCurrentPath = path
+        }
+        function onInstallFinished() {
+            root.installInProgress = false
+        }
     }
 
     function showToast(text) {
@@ -255,6 +279,22 @@ Window {
             InjectDialog {
                 itemId: root.openDialogItemId
                 onCloseRequested: root.closeInjectDialog()
+            }
+        }
+    }
+
+    Loader {
+        anchors.fill: parent
+        active: root.installInProgress
+        z: 100  // Above InjectDialog so the user sees progress even if the
+                // dialog is still being torn down after the install call returns.
+        sourceComponent: Component {
+            InstallProgressBar {
+                itemName:    root.installItemName
+                currentPath: root.installCurrentPath
+                current:     root.installCurrent
+                total:       root.installTotal
+                uninstalling: root.installUninstalling
             }
         }
     }
