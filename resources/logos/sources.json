@@ -85,9 +85,9 @@
   },
   {
     "id": "vscode",
-    "source": "Local simplified SVG based on the Visual Studio Code brand silhouette",
+    "source": "https://code.visualstudio.com/assets/branding/visual-studio-code-icons.zip#visual-studio-code-icons/vscode.svg",
     "checked": "2026-11-02",
-    "sha256": "368c668ff62d31912beb9bdf0dddad0ece57deeca5b5f7a4e463c87db7e2fe42"
+    "sha256": "74ad401c6487a0dc5af1f6b2935556ab2d3553ae45effc7e1697b4d117d046b6"
   },
   {
     "id": "grok",

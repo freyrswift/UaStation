@@ -92,7 +92,7 @@ macOS、Linux 的构建命令、产物名称和验证范围见 [跨平台构建]
 
 现在提供独立的 **Visual Studio Code** 卡片和 Logo。安装目标为
 `~/.copilot/instructions/Ua.instructions.md`，文件带有 `applyTo: "**"` 元数据，
-用于 VS Code Copilot 的用户级指令；Copilot CLI 仍使用独立的
+用于 Visual Studio Code Copilot 的用户级指令；Copilot CLI 仍使用独立的
 `~/.copilot/copilot-instructions.md` 入口。自定义目录可通过 `VSCODE_COPILOT_HOME`
 覆盖。
 

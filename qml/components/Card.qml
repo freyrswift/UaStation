@@ -100,6 +100,8 @@ Rectangle {
             color: Theme.text
             font.pixelSize: 13
             font.bold: true
+            fontSizeMode: Text.HorizontalFit
+            minimumPixelSize: 11
             elide: Text.ElideRight
         }
         Text {

@@ -978,10 +978,10 @@ int main(int argc, char** argv) {
     renderEngine.rootContext()->setContextProperty("logoItems", logoController.editorItems());
     QQmlComponent scene(&renderEngine);
     scene.setData("import QtQuick\nimport QtQuick.Window\nimport UaApp 1.0\n"
-                  "Window { width: 940; height: 430; visible: true; color: Theme.bg; "
+                  "Window { width: 664; height: 430; visible: true; color: Theme.bg; "
                   "property int themeMode: 1; Binding { target: Theme; property: 'mode'; value: themeMode } "
                   "Grid { anchors { fill: parent; margins: 12 } columns: 3; spacing: 8; "
-                  "Repeater { model: logoItems; delegate: Card { width: 300; height: 48; item: modelData } } } }",
+                  "Repeater { model: logoItems; delegate: Card { width: 208; height: 48; item: modelData } } } }",
                   QUrl());
     QScopedPointer<QObject> sceneObject(scene.create());
     auto* sceneWindow = qobject_cast<QQuickWindow*>(sceneObject.data());
@@ -1000,22 +1000,39 @@ int main(int argc, char** argv) {
         check(!frame.isNull(), mode == 1 ? "dark logo grid rendered" : "light logo grid rendered");
         if (frame.isNull()) continue;
         QSet<QString> labels;
+        QQuickItem* vscodeTitle = nullptr;
         std::function<void(QQuickItem*)> inspectLabel = [&](QQuickItem* object) {
             const QString text = object->property("text").toString();
             for (const Item& item : allItems()) {
                 if (item.group == ItemGroup::Editor && text == item.name) {
                     if (object->width() > 0 && object->height() > 0) labels.insert(text);
                     else out << "Label geometry " << text << ": " << object->width() << 'x' << object->height() << '\n';
+                    if (item.id == QStringLiteral("vscode")) vscodeTitle = object;
                 }
             }
             for (auto* child : object->childItems()) inspectLabel(child);
         };
         inspectLabel(sceneWindow->contentItem());
         check(labels.size() == logoCount, "all product labels have visible geometry");
-        const qreal scale = frame.width() / 940.0;
+        check(vscodeTitle && vscodeTitle->isVisible() &&
+              vscodeTitle->property("text").toString() == QStringLiteral("Visual Studio Code"),
+              mode == 1 ? "dark Visual Studio Code title is present and complete" :
+                          "light Visual Studio Code title is present and complete");
+        check(vscodeTitle && vscodeTitle->property("truncated").isValid() &&
+              !vscodeTitle->property("truncated").toBool(),
+              mode == 1 ? "dark Visual Studio Code title is not truncated" :
+                          "light Visual Studio Code title is not truncated");
+        auto* vscodeCard = vscodeTitle && vscodeTitle->parentItem() ?
+            vscodeTitle->parentItem()->parentItem() : nullptr;
+        const qreal titleTop = vscodeCard ? vscodeTitle->mapToItem(vscodeCard, QPointF()).y() : -1;
+        check(vscodeCard && vscodeTitle->height() > 0 && titleTop >= 0 &&
+              titleTop + vscodeTitle->height() <= vscodeCard->height(),
+              mode == 1 ? "dark Visual Studio Code title fits within its card vertically" :
+                          "light Visual Studio Code title fits within its card vertically");
+        const qreal scale = frame.width() / 664.0;
         int contrastTiles = 0;
         for (int index = 0; index < logoCount; ++index) {
-            const int left = 22 + (index % 3) * 308;
+            const int left = 22 + (index % 3) * 216;
             const int top = 22 + (index / 3) * 56;
             int minimum = 255;
             int maximum = 0;
