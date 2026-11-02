@@ -5,6 +5,7 @@ add_executable(ua_regression
     ../src/core/install_plan.cpp
     ../src/core/skills.cpp
     ../src/core/strings.cpp
+    ../src/core/app_strings.h
     ../src/core/prompts.cpp
     ../src/core/app_controller.cpp
     ../src/platform/instance_activation.cpp
