@@ -8,7 +8,7 @@
 #include "paths.h"
 #include "prompts.h"
 #include "skills.h"
-#include "strings.h"
+#include "app_strings.h"
 
 #include <QAction>
 #include <QCoreApplication>

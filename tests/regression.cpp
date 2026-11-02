@@ -34,7 +34,7 @@
 #include "core/install_plan.h"
 #include "core/items.h"
 #include "core/skills.h"
-#include "core/strings.h"
+#include "core/app_strings.h"
 #include "platform/instance_activation.h"
 
 static QString fixtureRoot;

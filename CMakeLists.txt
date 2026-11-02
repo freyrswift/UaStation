@@ -66,7 +66,7 @@ set_target_properties(Ua PROPERTIES OUTPUT_NAME "ua")
 
 # Core (cross-platform) sources
 target_sources(Ua PRIVATE
-    src/core/strings.h
+    src/core/app_strings.h
     src/core/strings.cpp
     src/core/items.h
     src/core/items.cpp
@@ -163,6 +163,7 @@ ua_add_skill_assets(Ua)
 
 target_include_directories(Ua PRIVATE
     ${CMAKE_SOURCE_DIR}/src
+    ${CMAKE_SOURCE_DIR}/src/core
     ${CMAKE_SOURCE_DIR}/src/platform
 )
 

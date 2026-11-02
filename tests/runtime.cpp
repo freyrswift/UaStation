@@ -32,7 +32,7 @@
 #include "core/updater.h"
 #undef private
 #include "core/settings.h"
-#include "core/strings.h"
+#include "core/app_strings.h"
 
 static QString fixtureRoot;
 class NoticeUiFixture : public QObject {

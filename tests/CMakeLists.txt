@@ -33,7 +33,7 @@ add_test(NAME ua_progress COMMAND ua_regression --progress-only)
 add_test(NAME ua_features COMMAND ua_regression --features-only)
 add_test(NAME ua_reliability COMMAND ua_regression --reliability-only)
 add_executable(ua_runtime runtime.cpp ../src/core/updater.h
-    ../src/core/settings.cpp ../src/core/settings.h ../src/core/strings.cpp ../src/core/strings.h)
+    ../src/core/settings.cpp ../src/core/settings.h ../src/core/strings.cpp ../src/core/app_strings.h)
 set_target_properties(ua_runtime PROPERTIES RUNTIME_OUTPUT_DIRECTORY "${PROJECT_BINARY_DIR}")
 target_include_directories(ua_runtime PRIVATE ../src)
 target_link_libraries(ua_runtime PRIVATE Qt6::Core Qt6::Gui Qt6::Qml Qt6::Quick Qt6::Network)

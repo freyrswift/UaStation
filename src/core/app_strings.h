@@ -1,4 +1,4 @@
-// strings.h - Translation table (CN / EN) exposed to QML
+// app_strings.h - Translation table (CN / EN) exposed to QML
 //
 // This is the Qt-side counterpart of the old config.h kStr[][2] table. We keep
 // the string IDs stable so prompts, skills and UI code can all key off them.

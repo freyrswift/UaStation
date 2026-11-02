@@ -1,6 +1,6 @@
 // strings.cpp - Translation table body (ported from old config.h kStr[][2])
 
-#include "strings.h"
+#include "app_strings.h"
 
 #include <QSettings>
 #include <array>

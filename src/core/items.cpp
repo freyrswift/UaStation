@@ -1,7 +1,7 @@
 // items.cpp - Static data tables
 
 #include "items.h"
-#include "strings.h"   // for Strings::StringId values used as nameId / subId
+#include "app_strings.h"   // for Strings::StringId values used as nameId / subId
 
 namespace ua::core {
 

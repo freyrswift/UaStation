@@ -14,7 +14,7 @@
 - Logo 回归场景适配 19 个工具，覆盖深色和浅色主题
 - Windows 发布包排除包含本地构建路径的中间资源文件
 - Linux CI 使用 Qt 6.8.3 对应的 `linux_gcc_64` 安装标识
-- 收紧头文件搜索路径，避免本地化头文件遮蔽 POSIX `strings.h`
+- 本地化头文件更名为 `app_strings.h`，避免遮蔽 POSIX `strings.h` 并保留 Qt 自动注册
 
 ## [2.1.0] - 2026-10-29
 

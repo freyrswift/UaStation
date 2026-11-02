@@ -10,7 +10,7 @@
 #include "items.h"
 #include "paths.h"
 #include "skills.h"
-#include "strings.h"
+#include "app_strings.h"
 #include "file_transaction.h"
 
 #include <QCryptographicHash>
