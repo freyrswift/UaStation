@@ -41,7 +41,7 @@ jobs:
           - name: linux-x64
             runner: ubuntu-24.04
             qt-host: linux
-            qt-arch: gcc_64
+            qt-arch: linux_gcc_64
             cmake-args: -DCMAKE_INSTALL_LIBDIR=lib
             artifact: Ua-linux-x64.tar.gz
 
