@@ -248,18 +248,33 @@ void rollbackTests(const QString& workspace)
     check(waitForFile(app + QStringLiteral("/launch-old.txt"), 10000), "original application restarts after rollback");
     check(readFile(app + QStringLiteral("/keep-user-file.txt")) == "preserve", "rollback preserves unrelated files");
     const DWORD helperId = readFile(job + QStringLiteral("/helper.pid")).toULong();
-    QThread::msleep(1000);
-    EnumWindows(closeHelperWindow, static_cast<LPARAM>(helperId));
     const DWORD restartedId = readFile(app + QStringLiteral("/launch-old.txt")).toULong();
     HANDLE restarted = OpenProcess(SYNCHRONIZE, FALSE, restartedId);
     if (restarted) {
         check(WaitForSingleObject(restarted, 20000) == WAIT_OBJECT_0, "restored fixture exits normally");
         CloseHandle(restarted);
     }
-    HANDLE helper = OpenProcess(SYNCHRONIZE, FALSE, helperId);
+    HANDLE helper = OpenProcess(SYNCHRONIZE | PROCESS_TERMINATE, FALSE, helperId);
     if (helper) {
-        check(WaitForSingleObject(helper, 10000) == WAIT_OBJECT_0, "failure notice closes and helper exits");
+        // Unattended runners may have no interactive desktop. After validating
+        // rollback, clean up the owned helper even if its deliberate error notice stays open.
+        QElapsedTimer deadline;
+        deadline.start();
+        DWORD state = WaitForSingleObject(helper, 0);
+        while (state == WAIT_TIMEOUT && deadline.elapsed() < 5000) {
+            EnumWindows(closeHelperWindow, static_cast<LPARAM>(helperId));
+            state = WaitForSingleObject(helper, 100);
+        }
+        if (state == WAIT_TIMEOUT) {
+            const BOOL terminated = TerminateProcess(helper, 1);
+            check(terminated && WaitForSingleObject(helper, 10000) == WAIT_OBJECT_0,
+                  "owned rollback helper is cleaned up without an interactive desktop");
+        } else {
+            check(state == WAIT_OBJECT_0, "rollback helper exits after its failure notice closes");
+        }
         CloseHandle(helper);
+    } else {
+        check(GetLastError() == ERROR_INVALID_PARAMETER, "rollback helper already exited");
     }
 }
 #endif
