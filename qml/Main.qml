@@ -13,19 +13,39 @@ Window {
     visible: true
     title: "Ua Toolbox"
 
-    // Qt would otherwise terminate the process on close; the tray keeps us alive.
-    onClosing: (close) => { close.accepted = false; root.hide() }
+    // Only keep a hidden instance when the tray can bring it back.
+    onClosing: (close) => {
+        if (root.installInProgress) { close.accepted = false; return }
+        if (root.disclaimerOpen) {
+            close.accepted = true
+            app.quit()
+            return
+        }
+        if (app.trayAvailable) {
+            close.accepted = false
+            root.hide()
+        } else {
+            close.accepted = true
+            app.quit()
+        }
+    }
 
     // Tray asked to come back
     Connections {
         target: app
-        function onShowMainWindowRequested() { root.show(); root.raise(); root.requestActivate() }
+        function onShowMainWindowRequested() { root.raise(); root.requestActivate() }
+    }
+    Connections {
+        target: Updater
+        function onDownloadFailed(reason) {
+            root.showToast(Strings.t(Strings.UpdateDownloadFailed) + reason)
+        }
     }
 
     // Drive the Theme singleton from Settings. Theme can't `import UaApp`
     // itself without breaking its own property initialisation; see Theme.qml.
     Binding { target: Theme; property: "mode";         value: Settings.themeMode }
-    Binding { target: Theme; property: "systemIsDark"; value: Settings.systemIsDark() }
+    Binding { target: Theme; property: "systemIsDark"; value: Settings.systemIsDark }
 
     // ---------- state ----------
     property int    activeTab: 0
@@ -33,7 +53,7 @@ Window {
     property bool   skillManagerOpen: false
     property bool   aboutOpen: false
     property bool   settingsMenuOpen: false
-    property bool   disclaimerOpen: !Settings.disclaimerAccepted
+    property bool   disclaimerOpen: true
     property string toastText: ""
     property string searchFilter: ""
     property var    editorModel: app.editorItems
@@ -67,10 +87,11 @@ Window {
         function onToast(text)       { root.showToast(text) }
         function onErrorRaised(text) { root.showToast(text) }
         function onInstallStarted(displayName, uninstalling) {
+            progressHideTimer.stop()
             root.installItemName = displayName
             root.installUninstalling = uninstalling
             root.installCurrent = 0
-            root.installTotal = 1
+            root.installTotal = 0
             root.installCurrentPath = ""
             root.installInProgress = true
         }
@@ -80,8 +101,13 @@ Window {
             root.installCurrentPath = path
         }
         function onInstallFinished() {
-            root.installInProgress = false
+            progressHideTimer.restart()
         }
+    }
+    Timer {
+        id: progressHideTimer
+        interval: 250
+        onTriggered: root.installInProgress = false
     }
 
     function showToast(text) {
@@ -96,6 +122,7 @@ Window {
     // ---------- shell ----------
     Rectangle {
         id: shell
+        enabled: !root.disclaimerOpen
         anchors.fill: parent
         radius: Theme.radius
         // Fully opaque so Linux / macOS / Win10 (no Mica) don't bleed through.
@@ -131,7 +158,7 @@ Window {
                 spacing: 0
                 TitleButton { glyph: ""; onClicked: root.settingsMenuOpen = !root.settingsMenuOpen }
                 TitleButton { glyph: ""; onClicked: root.visibility = Window.Minimized }
-                TitleButton { glyph: ""; danger: true; onClicked: root.hide() }
+                TitleButton { glyph: ""; danger: true; onClicked: root.close() }
             }
 
             TabBar {
@@ -318,13 +345,15 @@ Window {
     Loader {
         anchors.fill: parent
         active: root.disclaimerOpen
+        z: 200
+        focus: active
         sourceComponent: Component {
             Disclaimer {
                 onAccepted: {
-                    Settings.disclaimerAccepted = true
                     root.disclaimerOpen = false
                     Updater.check()
                 }
+                onExitRequested: app.quit()
             }
         }
     }

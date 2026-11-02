@@ -103,24 +103,25 @@
 
     <!-- Tool logos: current official brand marks (SVG where the vendor ships one,
          PNG for ZCode / WorkBuddy which only publish raster or filter-heavy SVG) -->
-    <file alias="logos/claude.svg">resources/logos/claudecode-color.svg</file>
-    <file alias="logos/deepseek.svg">resources/logos/deepseek-color.svg</file>
-    <file alias="logos/codex.svg">resources/logos/codex-color.svg</file>
-    <file alias="logos/cursor.svg">resources/logos/cursor-color.svg</file>
-    <file alias="logos/windsurf.svg">resources/logos/windsurf-color.svg</file>
+    <file alias="logos/claude.png">resources/logos/claude-color.png</file>
+    <file alias="logos/deepseek.png">resources/logos/deepseek-color.png</file>
+    <file alias="logos/codex.png">resources/logos/codex-color.png</file>
+    <file alias="logos/cursor.png">resources/logos/cursor-color.png</file>
+    <file alias="logos/windsurf.png">resources/logos/windsurf-color.png</file>
     <file alias="logos/zcode.png">resources/logos/zcode-color.png</file>
-    <file alias="logos/opencode.svg">resources/logos/opencode-color.svg</file>
+    <file alias="logos/opencode.png">resources/logos/opencode-color.png</file>
     <file alias="logos/workbuddy.png">resources/logos/workbuddy-color.png</file>
-    <file alias="logos/gemini.svg">resources/logos/gemini-color.svg</file>
-    <file alias="logos/qwen.svg">resources/logos/qwen-color.svg</file>
-    <file alias="logos/trae.svg">resources/logos/trae-color.svg</file>
-    <file alias="logos/codebuddy.svg">resources/logos/codebuddy-color.svg</file>
-    <file alias="logos/cline.svg">resources/logos/cline-color.svg</file>
-    <file alias="logos/copilot.svg">resources/logos/copilot-color.svg</file>
-    <file alias="logos/grok.svg">resources/logos/grok-color.svg</file>
-    <file alias="logos/doubao.svg">resources/logos/doubao-color.svg</file>
-    <file alias="logos/minimax.svg">resources/logos/minimax-color.svg</file>
-    <file alias="logos/kimi.svg">resources/logos/kimi-color.svg</file>
+    <file alias="logos/gemini.png">resources/logos/gemini-color.png</file>
+    <file alias="logos/qwen.png">resources/logos/qwen-color.png</file>
+    <file alias="logos/trae.png">resources/logos/trae-color.png</file>
+    <file alias="logos/codebuddy.png">resources/logos/codebuddy-color.png</file>
+    <file alias="logos/cline.png">resources/logos/cline-color.png</file>
+    <file alias="logos/copilot.png">resources/logos/copilot-color.png</file>
+    <file alias="logos/vscode.svg">resources/logos/vscode-color.svg</file>
+    <file alias="logos/grok.png">resources/logos/grok-color.png</file>
+    <file alias="logos/doubao.png">resources/logos/doubao-color.png</file>
+    <file alias="logos/minimax.png">resources/logos/minimax-color.png</file>
+    <file alias="logos/kimi.png">resources/logos/kimi-color.png</file>
   </qresource>
   <qresource prefix="/skills">
     <file alias="ai-llm-security/SKILL.md">resources/skills/ai-llm-security/SKILL.md</file>

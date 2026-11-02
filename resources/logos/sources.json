@@ -1,0 +1,116 @@
+[
+  {
+    "id": "claude",
+    "source": "https://claude.com/icon.svg",
+    "checked": "2026-11-01",
+    "sha256": "1352c9823f65d181b855b13bb11f254b8fc423fd28d6d1f2dc0115bdb4605e8b"
+  },
+  {
+    "id": "deepseek",
+    "source": "https://www.deepseek.com/favicon.ico",
+    "checked": "2026-11-01",
+    "sha256": "7d5408815c428ccb9f585eaf4335b0f9bc90757f4ed802aeafd1dbb64572f3db"
+  },
+  {
+    "id": "codex",
+    "source": "Installed official desktop package: OpenAI.Codex_26.1027.3384.0_x64__2p2nqsd0c76g0/assets/Square44x44Logo.targetsize-256_altform-lightunplated.png",
+    "checked": "2026-11-01",
+    "sha256": "00c3c5264856dfff809923a366fa659ff3d55463f19b1bcd2c356c7db8a4ae98"
+  },
+  {
+    "id": "cursor",
+    "source": "https://cursor.com/marketing-static/favicon-light.svg",
+    "checked": "2026-11-01",
+    "sha256": "d6d2dd17b714378e7e61c96ab0bee7a874068831d9816ea1b93cf9d240bf84ae"
+  },
+  {
+    "id": "windsurf",
+    "source": "https://devin.ai/favicon.svg",
+    "checked": "2026-11-01",
+    "sha256": "3545eb2aa5ab0f695e219d84c40c4462979e280e1b7ade59adcf3c125d796788"
+  },
+  {
+    "id": "zcode",
+    "source": "https://zcode.z.ai/favicon-192x192.png?v=20260707-transparent",
+    "checked": "2026-11-01",
+    "sha256": "c2ad88f92aeb3eaa7e8f588819f53337cb1f0202718e035df317877e6db68b68"
+  },
+  {
+    "id": "opencode",
+    "source": "https://opencode.ai/favicon-96x96-v3.png",
+    "checked": "2026-11-01",
+    "sha256": "86f0c0d890473800c9709bca3d75c03c6731590865f1867b3e657b5cdeaaf440"
+  },
+  {
+    "id": "workbuddy",
+    "source": "https://download.codebuddy.ai/web/workbuddy/170b416d2eccaaf590ea40cd918d5a6b4f07178f/assets/logo.svg",
+    "checked": "2026-11-01",
+    "sha256": "27d40582c71cd9341acb5d5edaf1ac4b597181d883477d89eda650249aa2b315"
+  },
+  {
+    "id": "gemini",
+    "source": "https://geminicli.com/icon.png",
+    "checked": "2026-11-01",
+    "sha256": "f68251d583276f389c55e633204447e8cd256fb619ea2f5722125c8947c23b24"
+  },
+  {
+    "id": "qwen",
+    "source": "https://qwenlm.github.io/qwen-code-docs/favicon.png?v=2",
+    "checked": "2026-11-01",
+    "sha256": "5ecdcc691d64ae8bebb75e491011d9b46fa87fbc4d8d4323cc8dbfe6757c180f"
+  },
+  {
+    "id": "trae",
+    "source": "https://lf-static.traecdn.us/obj/trae-ai-tx/trae_website/favicon.png",
+    "checked": "2026-11-01",
+    "sha256": "001c1a88602ffa402740691c1574bb2b9fa6897d775297709e0a2671314fd8fc"
+  },
+  {
+    "id": "codebuddy",
+    "source": "https://download.codebuddy.cn/web/website/ef3f61071769c4eb251eaf348beccaa512218f3d/assets/logo.svg",
+    "checked": "2026-11-01",
+    "sha256": "53c16f33d7d9f1d9f6b8ee1a2db218c33b356f0f14357531a967e77f45a23db0"
+  },
+  {
+    "id": "cline",
+    "source": "https://cline.bot/assets/branding/favicons/favicon-256x256.png",
+    "checked": "2026-11-01",
+    "sha256": "c8c7cd2c689d99c0bb1f105340692a1a438f75061caf98b03ff9135ca52dc34f"
+  },
+  {
+    "id": "copilot",
+    "source": "https://raw.githubusercontent.com/primer/octicons/main/icons/copilot-24.svg",
+    "checked": "2026-11-01",
+    "sha256": "d4ebddb85f31660f6f94c0f3cc93e4a6bc688f50a077634d5db219c48989b1b9"
+  },
+  {
+    "id": "vscode",
+    "source": "https://code.visualstudio.com/assets/branding/visual-studio-code-icons.zip#visual-studio-code-icons/vscode.svg",
+    "checked": "2026-11-02",
+    "sha256": "74ad401c6487a0dc5af1f6b2935556ab2d3553ae45effc7e1697b4d117d046b6"
+  },
+  {
+    "id": "grok",
+    "source": "https://grok.com/images/android-chrome-192x192.png",
+    "checked": "2026-11-01",
+    "sha256": "62ba67126b62cbb7f1bb2d5cef43002fdf25b454d9ea42a16082c6aa89eee982"
+  },
+  {
+    "id": "doubao",
+    "source": "https://lf-flow-web-cdn.doubao.com/obj/flow-doubao/favicon/new-doubao/192x192.png",
+    "checked": "2026-11-01",
+    "sha256": "54cb1de346f08615421fc7d4b3f86d8123a7a8a49b3d08db54839be3d9ef5f6c"
+  },
+  {
+    "id": "minimax",
+    "source": "https://www.minimax.io/favicon.ico",
+    "checked": "2026-11-01",
+    "sha256": "2a03b12fed948038468622385a68f0e2b488cdf2f071202c4febedded80f0bad"
+  },
+  {
+    "id": "kimi",
+    "source": "https://www.kimi.com/pwa-192.png",
+    "checked": "2026-11-01",
+    "sha256": "8b72a5fdca49fa1d567d57b3a782479e16deed4b2449cf8053f469cfc5f27522"
+  }
+]

@@ -9,6 +9,7 @@
 #include <QString>
 #include <QStringList>
 #include <QByteArray>
+#include <QJsonValue>
 #include <QVector>
 
 #include <functional>
@@ -19,6 +20,7 @@ enum class InstallState : int {
     NotInstalled   = 0,  // No marker, no file content
     Installed      = 1,  // Marker present (or legacy: state file + content)
     ActiveNoState  = 2,  // File has content but was not placed by us
+    NeedsRepair    = 3,  // Installation state exists but one or more files drifted/missing
 };
 
 struct TargetState {
@@ -38,13 +40,23 @@ struct TargetRecord {
                                 // empty for Marked targets since user edits are allowed
 };
 
+struct SettingRecord {
+    QString path;
+    QStringList keys;
+    QJsonValue before = QJsonValue::Undefined;
+    QJsonValue installed = QJsonValue::Undefined;
+};
+
 struct ItemState {
     QVector<TargetRecord> targets;
     qint64      installedAt = 0;
     QStringList skills;         // skill folder names we installed
     QString     tomlFile;       // config.toml we patched (Codex)
     QString     tomlPriorLine;  // the line that was there before us
+    QString     tomlInstalledLine; // the exact line we wrote; used to preserve later edits
     bool        tomlHadLine = false;
+    QVector<SettingRecord> settings; // Only the JSON fields changed by this install.
+    QStringList cacheFiles;          // Persisted paths, independent of later env changes.
 };
 
 struct InjectResult {
@@ -96,11 +108,8 @@ public:
     static QByteArray insertMarked(const QByteArray& previous, const QByteArray& marked);
     static QByteArray wipeMarked(const QByteArray& text);
 
-    // Progress callback: fired at the start of every target in install().
-    // Signature: (current, total, path). Install runs synchronously on the
-    // caller's thread, so QML signals emitted from here only observe mid-flight
-    // progress once the GUI thread is pumped (we currently log + toast around
-    // the whole install -- see AppController).
+    // Completed work units across targets, skills, settings and journal save.
+    // Called on the install worker; GUI consumers must use queued delivery.
     using ProgressCallback = std::function<void(int, int, const QString&)>;
     static void setProgressCallback(ProgressCallback cb);
 };

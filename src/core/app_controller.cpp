@@ -4,10 +4,11 @@
 
 #include "items.h"
 #include "injector.h"
+#include "install_plan.h"
 #include "paths.h"
 #include "prompts.h"
 #include "skills.h"
-#include "strings.h"
+#include "app_strings.h"
 
 #include <QAction>
 #include <QCoreApplication>
@@ -21,6 +22,7 @@
 #include <QGuiApplication>
 #include <QIcon>
 #include <QMenu>
+#include <QScopedValueRollback>
 #include <QSystemTrayIcon>
 #include <QUrl>
 #include <QVariantMap>
@@ -71,12 +73,9 @@ AppController::AppController(QObject* parent) : QObject(parent)
     // Translated card labels: refresh the items snapshot whenever the UI
     // language flips, so the Tools-tab tiles swap CN/EN live.
     connect(Strings::instance(), &Strings::langChanged,
-            this, &AppController::itemsChanged);
+            this, &AppController::refreshStates);
 
-    // Install progress -> QML signal. install() runs synchronously on the GUI
-    // thread so mid-install signals only land in a later event loop iteration,
-    // but AppController::install() posts a start/end toast around the call so
-    // users at least see "patching N files..." before the UI freezes.
+    // Worker-thread progress is delivered to QML through queued connections.
     Injector::setProgressCallback(
         [this](int cur, int tot, const QString& path) {
             emit installProgress(cur, tot, path);
@@ -88,19 +87,25 @@ AppController::~AppController() = default;
 void AppController::attachMainWindow(QWindow* window)
 {
     m_mainWindow = window;
-    if (!window) return;
-    // Intercept the X button so it hides to tray instead of closing the app.
-    connect(window, &QWindow::visibleChanged, this, [this](bool v) {
-        if (!v && m_tray && m_tray->isVisible()) {
-            // Window got hidden: don't quit Qt, keep the tray alive.
-        }
-    });
+}
+
+bool AppController::trayAvailable() const
+{
+    return m_tray && m_tray->isVisible() && QSystemTrayIcon::isSystemTrayAvailable();
 }
 
 void AppController::showMainWindow()
 {
     if (!m_mainWindow) return;
-    m_mainWindow->show();
+    const Qt::WindowStates state = m_mainWindow->windowState();
+    if (state & Qt::WindowMinimized) {
+        if (state & Qt::WindowMaximized) m_mainWindow->showMaximized();
+        else m_mainWindow->showNormal();
+    } else if (state & Qt::WindowMaximized) {
+        m_mainWindow->showMaximized();
+    } else {
+        m_mainWindow->show();
+    }
     m_mainWindow->raise();
     m_mainWindow->requestActivate();
     emit showMainWindowRequested();
@@ -178,7 +183,7 @@ QVariantList AppController::buildItemsSnapshot() const
         m[QStringLiteral("detected")]        = toolDetectedById(it.id);
         const auto st = Injector::scan(it.id);
         m[QStringLiteral("state")]           = static_cast<int>(st);
-        m[QStringLiteral("upgraded")]        = (st == InstallState::Installed) && Injector::hostUpgraded(it.id);
+        m[QStringLiteral("upgraded")]        = (st == InstallState::Installed || st == InstallState::NeedsRepair) && Injector::hostUpgraded(it.id);
         out.push_back(m);
     }
     return out;
@@ -264,43 +269,34 @@ QVariantList AppController::envCheck()
         const QString name = it.nameId >= 0
             ? strings->get(static_cast<Strings::StringId>(it.nameId)) : it.name;
         const bool detected = toolDetectedById(it.id);
-        const QString target = targetPath(it.targetRel);
+        const InstallPlan plan = planFor(it);
+        const QString target = plan.valid() ? plan.targets.first().path : QString();
         const bool targetExists = QFileInfo::exists(target);
-        const bool targetWritable = targetExists
-            ? QFileInfo(target).isWritable()
-            : QFileInfo(QFileInfo(target).absolutePath()).isWritable();
+        QString writablePath = target;
+        while (!writablePath.isEmpty() && !QFileInfo::exists(writablePath)) {
+            const QString parent = QFileInfo(writablePath).absolutePath();
+            if (parent == writablePath) break;
+            writablePath = parent;
+        }
+        const bool targetWritable = !writablePath.isEmpty() && QFileInfo(writablePath).isWritable();
         const auto state = Injector::scan(it.id);
 
         int skillCount = 0;
-        if (!it.skillsDirRel.isEmpty()) {
-            const QString sd = skillsDir(it.skillsDirRel);
+        const QString sd = Skills::installedRoot(it.id);
+        if (!sd.isEmpty()) {
             QDir d(sd);
             if (d.exists()) {
                 skillCount = d.entryList(QDir::Dirs | QDir::NoDotAndDotDot).size();
             }
         }
 
-        QString installDir;
-        if (detected) {
-            QString rel = it.targetRel;
-            rel.replace(QLatin1Char('\\'), QLatin1Char('/'));
-            const int slash = rel.indexOf(QLatin1Char('/'));
-            if (slash > 0) {
-                QString path = rel.left(slash);
-                // XDG-style paths like ".config/opencode/..." need two segments:
-                // ".config" alone isn't the tool's dir.
-                if (path == QLatin1String(".config")) {
-                    const int slash2 = rel.indexOf(QLatin1Char('/'), slash + 1);
-                    if (slash2 > 0) path = rel.left(slash2);
-                }
-                installDir = homeDir() + QLatin1Char('/') + path;
-            }
-        }
+        const QString installDir = detected ? toolConfigRoot(it.id) : QString();
 
         QString stateLabel;
         switch (state) {
         case InstallState::Installed:    stateLabel = cn ? QStringLiteral("已安装") : QStringLiteral("Installed"); break;
         case InstallState::ActiveNoState:stateLabel = cn ? QStringLiteral("有内容") : QStringLiteral("Has content"); break;
+        case InstallState::NeedsRepair: stateLabel = Strings::instance()->get(Strings::NeedsRepair); break;
         default:                         stateLabel = cn ? QStringLiteral("未安装") : QStringLiteral("Not installed"); break;
         }
 
@@ -314,7 +310,7 @@ QVariantList AppController::envCheck()
         m[QStringLiteral("targetWritable")] = targetWritable;
         m[QStringLiteral("state")]          = static_cast<int>(state);
         m[QStringLiteral("stateLabel")]     = stateLabel;
-        m[QStringLiteral("skillsDir")]      = it.skillsDirRel.isEmpty() ? QString() : skillsDir(it.skillsDirRel);
+        m[QStringLiteral("skillsDir")]      = sd;
         m[QStringLiteral("skillCount")]     = skillCount;
         out.push_back(m);
     }
@@ -342,7 +338,9 @@ void AppController::revealTargetDir(const QString& itemId)
 {
     const Item* it = itemById(itemId);
     if (!it) return;
-    const QString full = targetPath(it->targetRel);
+    const auto plan = planFor(*it);
+    if (!plan.valid()) return;
+    const QString full = plan.targets.first().path;
     const QString dir = QFileInfo(full).absolutePath();
     // Don't mkpath a non-existent target dir — that would create an empty
     // config folder and make the tool look installed on the next scan.
@@ -475,11 +473,12 @@ QString itemDisplayName(const QString& itemId)
 
 // Run `fn` on a worker thread, keeping the UI event loop spinning so progress
 // signals emitted from the worker reach QML via queued connections. Returns
-// the InjectResult once the worker finishes.
+// the operation result once the worker finishes.
 template <typename Fn>
-InjectResult runInWorker(QObject* parent, Fn fn)
+auto runInWorker(QObject* parent, Fn fn)
 {
-    QFutureWatcher<InjectResult> watcher;
+    using Result = decltype(fn());
+    QFutureWatcher<Result> watcher;
     watcher.setParent(parent);
     QEventLoop loop;
     QObject::connect(&watcher, &QFutureWatcherBase::finished, &loop, &QEventLoop::quit);
@@ -493,6 +492,8 @@ InjectResult runInWorker(QObject* parent, Fn fn)
 
 bool AppController::install(const QString& itemId, const QString& promptFile)
 {
+    if (m_operationBusy) return false;
+    QScopedValueRollback<bool> busy(m_operationBusy, true);
     const QString displayName = itemDisplayName(itemId);
     emit installStarted(displayName, /*uninstalling=*/false);
 
@@ -509,6 +510,8 @@ bool AppController::install(const QString& itemId, const QString& promptFile)
 
 bool AppController::uninstall(const QString& itemId)
 {
+    if (m_operationBusy) return false;
+    QScopedValueRollback<bool> busy(m_operationBusy, true);
     const QString displayName = itemDisplayName(itemId);
     emit installStarted(displayName, /*uninstalling=*/true);
 
@@ -531,6 +534,7 @@ QVariantList AppController::skills()
         m[QStringLiteral("dirName")]        = s.dirName;
         m[QStringLiteral("installedCount")] = s.installedCount;
         m[QStringLiteral("category")]       = s.category;
+        m[QStringLiteral("missingAssets")]  = s.missingAssets;
         out.push_back(m);
     }
     return out;
@@ -549,7 +553,7 @@ void AppController::openSkillsFolder(const QString& itemId)
     // Open the skills folder of a specific tool when itemId is given;
     // fall back to the first tool with a skillsDirRel otherwise.
     auto openIfValid = [](const QString& dir) {
-        if (dir.isEmpty() || !QFileInfo::exists(dir)) return false;
+        if (dir.isEmpty() || !QFileInfo(dir).isDir()) return false;
         QDesktopServices::openUrl(QUrl::fromLocalFile(dir));
         return true;
     };
@@ -557,7 +561,7 @@ void AppController::openSkillsFolder(const QString& itemId)
     if (!itemId.isEmpty()) {
         if (const Item* it = itemById(itemId)) {
             if (!it->skillsDirRel.isEmpty()) {
-                const QString dir = skillsDir(it->skillsDirRel);
+                const QString dir = Skills::installedRoot(itemId);
                 if (openIfValid(dir)) return;
                 emit errorRaised(Strings::instance()->lang() == Strings::CN
                     ? QStringLiteral("该工具还没有技能，先点安装")
@@ -569,7 +573,7 @@ void AppController::openSkillsFolder(const QString& itemId)
 
     for (const Item& it : allItems()) {
         if (it.skillsDirRel.isEmpty()) continue;
-        const QString dir = skillsDir(it.skillsDirRel);
+        const QString dir = Skills::installedRoot(it.id);
         if (openIfValid(dir)) return;
     }
     emit errorRaised(Strings::instance()->lang() == Strings::CN
@@ -584,6 +588,7 @@ void AppController::showToast(const QString& text)
 
 void AppController::quit()
 {
+    if (m_operationBusy) return;
     QCoreApplication::quit();
 }
 

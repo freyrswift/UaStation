@@ -50,8 +50,7 @@ Item {
             spacing: 12
             Rectangle {
                 width: 36; height: 36; radius: 6
-                color: root.item && root.item.framed
-                       ? "transparent"
+                color: root.item && root.item.logo ? "#F4F4F4"
                        : (Theme.dark ? "#3A3A3A" : "#EAEAEA")
                 Image {
                     anchors.fill: parent
@@ -77,6 +76,7 @@ Item {
                         switch (root.item.state) {
                         case 1:  return (Strings.lang, Strings.t(Strings.Injected))
                         case 2:  return (Strings.lang, Strings.t(Strings.FileHasContent))
+                        case 3:  return (Strings.lang, Strings.t(Strings.NeedsRepair))
                         default: return (Strings.lang, Strings.t(Strings.NotInjected))
                         }
                     }
@@ -185,10 +185,11 @@ Item {
             }
             DialogButton {
                 label: (Strings.lang, Strings.t(Strings.Uninstall))
-                actionable: root.item && root.item.state === 1
+                actionable: root.item && (root.item.state === 1 || root.item.state === 3)
                 onTriggered: root.confirmUninstall = true
             }
             DialogButton {
+                objectName: "installButton"
                 label: (Strings.lang, Strings.t(Strings.Inject))
                 primary: true
                 actionable: root.item && root.item.detected && root.promptList.length > 0

@@ -48,6 +48,10 @@ bool toolDetected(QString relative);
 // Doubao, resolves DOUBAO_USER_SKILLS or the %LOCALAPPDATA%\Doubao\... root.
 QString toolHomeOverride(const QString& itemId);
 
+// Resolve a product's config root and a home-relative path beneath that root.
+QString toolConfigRoot(const QString& itemId);
+QString toolPath(const QString& itemId, const QString& relative);
+
 // Per-tool detection: honors env-var overrides and per-tool special cases
 // (Doubao lives in %LOCALAPPDATA%\Doubao\..., not ~/.doubao). Falls back to
 // the relative-path heuristic in toolDetected().

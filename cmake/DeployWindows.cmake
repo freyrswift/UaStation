@@ -10,16 +10,30 @@ find_program(WINDEPLOYQT_EXECUTABLE
     REQUIRED
 )
 
+# Qt's MSVC DLLs still need the dynamic CRT even though Ua itself uses /MT.
+if(MSVC)
+    set(CMAKE_INSTALL_SYSTEM_RUNTIME_LIBS_SKIP TRUE)
+    include(InstallRequiredSystemLibraries)
+    if(NOT CMAKE_INSTALL_SYSTEM_RUNTIME_LIBS)
+        message(FATAL_ERROR "MSVC redistributable DLLs were not found")
+    endif()
+    install(PROGRAMS ${CMAKE_INSTALL_SYSTEM_RUNTIME_LIBS} DESTINATION .)
+    add_custom_command(TARGET Ua POST_BUILD
+        COMMAND ${CMAKE_COMMAND} -E copy_if_different
+                ${CMAKE_INSTALL_SYSTEM_RUNTIME_LIBS} "$<TARGET_FILE_DIR:Ua>"
+        COMMENT "Deploying MSVC runtime next to Ua.exe"
+        VERBATIM
+    )
+endif()
+
 # Attach a POST_BUILD step so a plain `cmake --build` run yields a
 # directly-runnable Ua.exe without needing a separate deploy pass.
 add_custom_command(TARGET Ua POST_BUILD
     COMMAND "${WINDEPLOYQT_EXECUTABLE}"
             --release
-            --no-compiler-runtime
             --no-system-d3d-compiler
             --no-opengl-sw          # drops the 20 MB opengl32sw.dll fallback
             --no-translations       # we ship our own CN/EN table in strings.cpp
-            --no-quick-import       # QML module is already linked statically
             --no-system-dxc-compiler # skips dxcompiler.dll (~14 MB)
             --qmldir "${CMAKE_SOURCE_DIR}/qml"
             "$<TARGET_FILE:Ua>"
@@ -60,5 +74,6 @@ foreach(subdir IN ITEMS
     install(DIRECTORY $<TARGET_FILE_DIR:Ua>/${subdir}
         DESTINATION .
         OPTIONAL
+        PATTERN "*.qrc" EXCLUDE
     )
 endforeach()

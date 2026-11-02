@@ -24,6 +24,10 @@ Settings::Settings(QObject* parent) : QObject(parent)
     QSettings s;
     m_themeMode          = s.value(QString::fromLatin1(kThemeKey), System).toInt();
     m_disclaimerAccepted = s.value(QString::fromLatin1(kDisclaimerKey), false).toBool();
+    if (auto* hints = QGuiApplication::styleHints()) {
+        connect(hints, &QStyleHints::colorSchemeChanged, this,
+                [this](Qt::ColorScheme) { emit systemIsDarkChanged(); });
+    }
 }
 
 int Settings::themeMode() const { return m_themeMode; }

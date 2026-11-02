@@ -52,11 +52,7 @@ QStringList cursorRuleDirs()
 // from. Probe the live one first, keep the legacy one as a fallback.
 QString workbuddyConfigDir()
 {
-    const QStringList candidates{
-        QDir::cleanPath(homeDir() + QStringLiteral("/.workbuddy")),
-        QDir::cleanPath(homeDir() + QStringLiteral("/.workbuddy-ai")),
-    };
-    return firstExistingDir(candidates);
+    return toolConfigRoot(QStringLiteral("workbuddy"));
 }
 
 bool isWorkbuddyRoot(const QString& dir)
@@ -126,17 +122,19 @@ InstallPlan planFor(const Item& item)
     plan.maxChars = item.maxChars;
 
     if (item.id == QLatin1String("cursor")) {
-        const QString dir = firstExistingDir(cursorRuleDirs());
+        const QString envRoot = toolHomeOverride(item.id);
+        const QString dir = envRoot.isEmpty() ? firstExistingDir(cursorRuleDirs())
+            : QDir::cleanPath(envRoot + QStringLiteral("/rules"));
         plan.targets.push_back({QDir::cleanPath(dir + QStringLiteral("/Ua.mdc")),
                                 TargetKind::Marked});
 
         // Sync to .cursorrules if it already exists (don't create it)
         const QString cursorrules = QDir::cleanPath(homeDir() + QStringLiteral("/.cursorrules"));
-        if (QFileInfo::exists(cursorrules)) {
+        if (envRoot.isEmpty() && QFileInfo::exists(cursorrules)) {
             plan.targets.push_back({cursorrules, TargetKind::Marked});
         }
 
-        plan.skillsDir = QDir::cleanPath(homeDir() + QStringLiteral("/.cursor/skills"));
+        plan.skillsDir = toolPath(item.id, item.skillsDirRel);
         return plan;
     }
 
@@ -335,7 +333,7 @@ InstallPlan planFor(const Item& item)
         // Two channels on purpose: Codex rewrites config.toml itself and drops
         // unknown keys, so the pointer alone is not durable; AGENTS.md is read
         // natively and survives that rewrite.
-        const QString home = QDir::cleanPath(homeDir() + QStringLiteral("/.codex"));
+        const QString home = toolConfigRoot(item.id);
         const QString managed = QDir::cleanPath(home + QStringLiteral("/managed-prompts/Ua.md"));
         plan.targets.push_back({QDir::cleanPath(home + QStringLiteral("/AGENTS.md")),
                                 TargetKind::Marked});
@@ -349,9 +347,9 @@ InstallPlan planFor(const Item& item)
     if (item.id == QLatin1String("zcode")) {
         // ZCode keeps a global memory file of its own; writing it covers the
         // memory channel while AGENTS.md covers the instruction channel.
-        plan.targets.push_back({targetPath(QStringLiteral(".zcode/AGENTS.md")),
+        plan.targets.push_back({toolPath(item.id, QStringLiteral(".zcode/AGENTS.md")),
                                 TargetKind::Marked});
-        plan.targets.push_back({targetPath(QStringLiteral(".zcode/cli/memories/global/memory/MEMORY.md")),
+        plan.targets.push_back({toolPath(item.id, QStringLiteral(".zcode/cli/memories/global/memory/MEMORY.md")),
                                 TargetKind::WholeFile});
 
         // ZCode install dir: probe registry, common paths, all drives
@@ -421,12 +419,12 @@ InstallPlan planFor(const Item& item)
             }
         }
 
-        plan.skillsDir = skillsDir(QStringLiteral(".zcode/skills"));
+        plan.skillsDir = toolPath(item.id, QStringLiteral(".zcode/skills"));
         return plan;
     }
 
     if (item.id == QLatin1String("deepseek")) {
-        const QString dsh = QDir::cleanPath(homeDir() + QStringLiteral("/.dsh"));
+        const QString dsh = toolConfigRoot(item.id);
 
         // 1) AGENTS.md — standard marker block injection (workspace instructions)
         plan.targets.push_back({QDir::cleanPath(dsh + QStringLiteral("/AGENTS.md")),
@@ -450,9 +448,9 @@ InstallPlan planFor(const Item& item)
         // .doubao\agent_mode\workspace\.user_skills — never ~/.doubao (that's
         // a stray dir earlier bugs may have created).
         const QString local = qEnvironmentVariable("LOCALAPPDATA").trimmed();
-        if (local.isEmpty()) return plan;  // Not supported off-Windows.
-
         QString skillsRoot = qEnvironmentVariable("DOUBAO_USER_SKILLS").trimmed();
+        if (local.isEmpty() && skillsRoot.isEmpty()) return plan;
+        if (!skillsRoot.isEmpty()) skillsRoot = toolHomeOverride(item.id);
         if (skillsRoot.isEmpty()) {
             skillsRoot = QDir::cleanPath(
                 local + QStringLiteral("/Doubao/User Data/Default/.doubao/agent_mode/workspace/.user_skills"));
@@ -471,28 +469,11 @@ InstallPlan planFor(const Item& item)
 
     // Generic branch: env-var override wins over the default ~/.<tool>/ path.
     // When set, we rebase both targetRel and skillsDirRel onto the env root.
-    const QString envRoot = toolHomeOverride(item.id);
-
-    auto rebase = [&](const QString& rel) -> QString {
-        if (rel.isEmpty()) return {};
-        QString r = rel;
-        r.replace(QLatin1Char('\\'), QLatin1Char('/'));
-        if (envRoot.isEmpty()) {
-            return QDir::cleanPath(homeDir() + QLatin1Char('/') + r);
-        }
-        // Strip the first segment (e.g. ".codex/AGENTS.md" -> "AGENTS.md")
-        // because envRoot already points at the tool's root dir.
-        const int slash = r.indexOf(QLatin1Char('/'));
-        const QString tail = slash < 0 ? QString() : r.mid(slash + 1);
-        return tail.isEmpty() ? envRoot
-                              : QDir::cleanPath(envRoot + QLatin1Char('/') + tail);
-    };
-
     if (!item.targetRel.isEmpty()) {
-        plan.targets.push_back({rebase(item.targetRel), TargetKind::Marked});
+        plan.targets.push_back({toolPath(item.id, item.targetRel), TargetKind::Marked});
     }
     if (!item.skillsDirRel.isEmpty()) {
-        plan.skillsDir = rebase(item.skillsDirRel);
+        plan.skillsDir = toolPath(item.id, item.skillsDirRel);
     }
     return plan;
 }

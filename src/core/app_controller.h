@@ -24,6 +24,7 @@ class AppController : public QObject
     Q_PROPERTY(QVariantList toolsItems  READ toolsItems  NOTIFY itemsChanged)
     Q_PROPERTY(QVariantList prompts     READ prompts     NOTIFY promptsChanged)
     Q_PROPERTY(QString version READ version CONSTANT)
+    Q_PROPERTY(bool trayAvailable READ trayAvailable)
 
 public:
     explicit AppController(QObject* parent = nullptr);
@@ -32,12 +33,14 @@ public:
     // Called from main.cpp once the main QML window is created so Close->Hide
     // (and tray left-click->show) can target it.
     void attachMainWindow(QWindow* window);
+    void showMainWindow();
 
     QVariantList items();
     QVariantList editorItems();
     QVariantList toolsItems();
     QVariantList prompts();
     QString version() const;
+    bool trayAvailable() const;
 
 public slots:
     // Item actions
@@ -83,7 +86,6 @@ private:
     const QVariantList& cachedSnapshot() const;
     void invalidateSnapshot();
     void setupTray();
-    void showMainWindow();
     // Renders the bundled guide template for one product.
     QString tipFor(const Item& item) const;
     // Writes every product's guide under <configDir>/docs; returns the folder.
@@ -95,6 +97,7 @@ private:
     QWindow*         m_mainWindow = nullptr;
     mutable QVariantList m_snapshotCache;
     mutable bool         m_snapshotDirty = true;
+    bool m_operationBusy = false;
 };
 
 } // namespace ua::core
