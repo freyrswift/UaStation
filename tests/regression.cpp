@@ -347,6 +347,12 @@ static void featureTests(const QString& root, const std::function<void(bool, con
           "legacy upgrade owns only old SKILL.md and backs up preexisting companions");
 
     selectFixture(root, "activation");
+#ifdef Q_OS_UNIX
+    // macOS local sockets have a short path limit; nested fixtures exceed it.
+    QTemporaryDir activationTemp("/tmp/ua-XXXXXX");
+    if (!activationTemp.isValid()) qFatal("Activation temp setup failed");
+    qputenv("TMPDIR", activationTemp.path().toUtf8());
+#endif
     AppController controller;
     QWindow window;
     controller.attachMainWindow(&window);
