@@ -279,7 +279,8 @@ static void featureTests(const QString& root, const std::function<void(bool, con
     bool installed = false;
     const auto names = Skills::installInto("claude", skillsRoot, &installed);
     check(installed && names.size() == allSkills().size() && QFileInfo::exists(reference) &&
-          Injector::readFile(asset) == "name,value\nfixture,42\n", "package includes nested references and assets");
+          Injector::readFile(asset) == Injector::readFile(":/skills/" + name + "/assets/sample.csv"),
+          "package includes nested references and assets");
     const auto manifest = jsonAt(meta + ".files.json");
     const auto ownedFiles = manifest.value("files").toArray();
     check(ownedFiles.contains("SKILL.md") && ownedFiles.contains("scripts/check.js") &&
@@ -914,7 +915,8 @@ int main(int argc, char** argv) {
     }
     check(source.contains("danger: true; onClicked: root.close()"), "custom close shares native handler");
     QFile desktop(QStringLiteral(UA_SOURCE_DIR "/cmake/DeployLinux.cmake"));
-    check(desktop.open(QIODevice::ReadOnly) && desktop.readAll().contains("Exec=ua\n"), "Linux launcher matches executable name");
+    check(desktop.open(QIODevice::ReadOnly | QIODevice::Text) && desktop.readAll().contains("Exec=ua\n"),
+          "Linux launcher matches executable name");
     }
 
     selectFixture(temp.path(), "logo-grid");
