@@ -110,7 +110,7 @@ jobs:
 
       - name: Install
         shell: bash
-        run: cmake --install build --config Release --prefix dist
+        run: cmake --install build --config Release --prefix "$GITHUB_WORKSPACE/dist"
 
       - name: Verify macOS bundle
         if: runner.os == 'macOS'
