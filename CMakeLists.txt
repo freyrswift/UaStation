@@ -6,8 +6,12 @@ set(CMAKE_AUTOMOC ON)
 set(CMAKE_AUTORCC ON)
 set(CMAKE_AUTOUIC ON)
 
+if(CMAKE_HOST_APPLE AND NOT DEFINED CMAKE_OSX_DEPLOYMENT_TARGET)
+    set(CMAKE_OSX_DEPLOYMENT_TARGET "12.0" CACHE STRING "Minimum supported macOS version")
+endif()
+
 project(Ua
-    VERSION 2.0.0
+    VERSION 2.2.0
     DESCRIPTION "Ua Toolbox - cross-platform AI tool prompt installer"
     LANGUAGES CXX
 )
@@ -45,7 +49,9 @@ qt_standard_project_setup(REQUIRES 6.5)
 # Silence QTP0004: we intentionally keep a flat qml module without per-folder
 # qmldir files. Our files live in qml/components, qml/dialogs, qml/theme but
 # all share the single "UaApp" URI.
-qt_policy(SET QTP0004 NEW)
+if(Qt6_VERSION VERSION_GREATER_EQUAL 6.8)
+    qt_policy(SET QTP0004 NEW)
+endif()
 
 # ---------------------------------------------------------------------------
 # Executable
@@ -80,6 +86,7 @@ target_sources(Ua PRIVATE
     src/core/updater.cpp
     src/core/app_controller.h
     src/core/app_controller.cpp
+    src/platform/instance_activation.cpp
 )
 
 # Platform-specific sources
@@ -95,6 +102,11 @@ if(WIN32)
         target_sources(Ua PRIVATE ${CMAKE_CURRENT_BINARY_DIR}/app.rc)
     endif()
 elseif(APPLE)
+    enable_language(OBJCXX)
+    set_target_properties(Ua PROPERTIES OBJCXX_STANDARD 20 OBJCXX_STANDARD_REQUIRED ON)
+    find_library(UA_APPKIT_FRAMEWORK AppKit REQUIRED)
+    find_library(UA_FOUNDATION_FRAMEWORK Foundation REQUIRED)
+    target_link_libraries(Ua PRIVATE "${UA_APPKIT_FRAMEWORK}" "${UA_FOUNDATION_FRAMEWORK}")
     target_sources(Ua PRIVATE
         src/platform/window_effects_mac.mm
         src/platform/singleton_posix.cpp
@@ -146,6 +158,8 @@ qt_add_qml_module(Ua
 # top of this file) picks up the .qrc file and generates qrc_resources.cpp
 # which gets auto-added to the target's compile list.
 target_sources(Ua PRIVATE resources.qrc)
+include(cmake/SkillAssets.cmake)
+ua_add_skill_assets(Ua)
 
 target_include_directories(Ua PRIVATE
     ${CMAKE_SOURCE_DIR}/src
@@ -172,7 +186,7 @@ target_compile_definitions(Ua PRIVATE
 
 if(MSVC)
     target_compile_options(Ua PRIVATE /W3 /permissive- /utf-8 /Zc:__cplusplus)
-    # Static CRT to match previous Release config (no VC runtime redist needed)
+    # Ua uses static CRT; Qt's dynamic CRT is bundled by DeployWindows.cmake.
     set_property(TARGET Ua PROPERTY MSVC_RUNTIME_LIBRARY
         "$<IF:$<CONFIG:Debug>,MultiThreadedDebug,MultiThreaded>")
 endif()
@@ -181,6 +195,13 @@ endif()
 # Install / Deploy helpers
 # ---------------------------------------------------------------------------
 include(GNUInstallDirs)
+
+if(UNIX AND NOT APPLE)
+    set_target_properties(Ua PROPERTIES
+        INSTALL_RPATH "$ORIGIN/../${CMAKE_INSTALL_LIBDIR}"
+        INSTALL_RPATH_USE_LINK_PATH FALSE
+    )
+endif()
 
 install(TARGETS Ua
     BUNDLE  DESTINATION .
@@ -197,4 +218,9 @@ elseif(APPLE)
     include(cmake/DeployMacOS.cmake OPTIONAL)
 else()
     include(cmake/DeployLinux.cmake OPTIONAL)
+endif()
+
+include(CTest)
+if(BUILD_TESTING)
+    add_subdirectory(tests)
 endif()

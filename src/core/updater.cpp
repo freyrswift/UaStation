@@ -11,13 +11,25 @@
 #include <QNetworkAccessManager>
 #include <QNetworkReply>
 #include <QNetworkRequest>
-#include <QOperatingSystemVersion>
+#include <QRegularExpression>
 #include <QStandardPaths>
+#include <QSysInfo>
 #include <QUrl>
 
 namespace ua::core {
 
 namespace {
+
+bool writeAll(QFile* file, const QByteArray& bytes)
+{
+    qint64 offset = 0;
+    while (offset < bytes.size()) {
+        const qint64 written = file->write(bytes.constData() + offset, bytes.size() - offset);
+        if (written <= 0) return false;
+        offset += written;
+    }
+    return true;
+}
 
 QString stripVPrefix(QString s)
 {
@@ -39,18 +51,26 @@ int semverCompare(const QString& a, const QString& b)
     return 0;
 }
 
-constexpr const char* kReleaseAssetWin   = "Ua-windows-x64.zip";
-constexpr const char* kReleaseAssetLinux = "Ua-linux-x64.tar.gz";
-constexpr const char* kReleaseAssetMac   = "Ua-macos-arm64.dmg";
 constexpr const char* kReleasesPage      = "https://github.com/freyrswift/UaStation/releases/latest";
 constexpr const char* kApiLatest         = "https://api.github.com/repos/freyrswift/UaStation/releases/latest";
 
+QString assetForPlatform(QStringView kernel, QStringView architecture)
+{
+    if (kernel == u"winnt" && architecture == u"x86_64")
+        return QStringLiteral("Ua-windows-x64.zip");
+    if (kernel == u"darwin" && architecture == u"arm64")
+        return QStringLiteral("Ua-macos-arm64.dmg");
+    if (kernel == u"darwin" && architecture == u"x86_64")
+        return QStringLiteral("Ua-macos-x64.dmg");
+    if (kernel == u"linux" && architecture == u"x86_64")
+        return QStringLiteral("Ua-linux-x64.tar.gz");
+    return {};
+}
+
 QString releaseAssetName()
 {
-    const auto t = QOperatingSystemVersion::current().type();
-    if (t == QOperatingSystemVersion::Windows) return QString::fromLatin1(kReleaseAssetWin);
-    if (t == QOperatingSystemVersion::MacOS)   return QString::fromLatin1(kReleaseAssetMac);
-    return QString::fromLatin1(kReleaseAssetLinux);
+    // Use the binary's architecture, including when running under Rosetta.
+    return assetForPlatform(QSysInfo::kernelType(), QSysInfo::buildCpuArchitecture());
 }
 
 } // namespace
@@ -77,12 +97,14 @@ void Updater::check()
     if (m_checking) return;
     m_checking = true;
     m_checked  = false;
+    m_checkFailed = false;
     m_latest.clear();
     emit stateChanged();
 
     QNetworkRequest req(QUrl(QString::fromLatin1(kApiLatest)));
     req.setRawHeader("User-Agent", "Ua-Toolbox-Updater");
     req.setRawHeader("Accept",     "application/vnd.github+json");
+    req.setTransferTimeout(30000);
 
     QNetworkReply* reply = m_net->get(req);
     connect(reply, &QNetworkReply::finished, this, [this, reply]() {
@@ -96,6 +118,9 @@ void Updater::check()
                 m_latest = stripVPrefix(doc.object().value(QStringLiteral("tag_name")).toString());
             }
         }
+        static const QRegularExpression version(QStringLiteral("^[0-9]+(?:\\.[0-9]+){1,3}$"));
+        m_checkFailed = !version.match(m_latest).hasMatch();
+        if (m_checkFailed) m_latest.clear();
         emit stateChanged();
     });
 }
@@ -104,10 +129,16 @@ void Updater::download()
 {
     if (m_downloading || !available()) return;
 
+    const QString assetName = releaseAssetName();
+    if (assetName.isEmpty()) {
+        emit downloadFailed(tr("No update package is configured for this platform and architecture"));
+        return;
+    }
+
     const QString url = QStringLiteral("https://github.com/freyrswift/UaStation/releases/latest/download/%1")
-                            .arg(releaseAssetName());
+                            .arg(assetName);
     const QString tmpDir = QStandardPaths::writableLocation(QStandardPaths::TempLocation);
-    const QString outPath = tmpDir + QLatin1Char('/') + releaseAssetName();
+    const QString outPath = tmpDir + QLatin1Char('/') + assetName;
 
     QFile* f = new QFile(outPath, this);
     if (!f->open(QIODevice::WriteOnly | QIODevice::Truncate)) {
@@ -119,15 +150,20 @@ void Updater::download()
     m_downloading = true;
     m_progress    = 0;
     m_downloadedPath.clear();
+    m_writeError.clear();
     emit stateChanged();
 
     QNetworkRequest req((QUrl(url)));
     req.setRawHeader("User-Agent", "Ua-Toolbox-Updater");
+    req.setTransferTimeout(30000);
     // Qt 6 follows redirects by default; no attribute needed.
 
     QNetworkReply* reply = m_net->get(req);
-    connect(reply, &QNetworkReply::readyRead, this, [reply, f]() {
-        f->write(reply->readAll());
+    connect(reply, &QNetworkReply::readyRead, this, [this, reply, f]() {
+        if (m_writeError.isEmpty() && !writeAll(f, reply->readAll())) {
+            m_writeError = f->errorString();
+            reply->abort();
+        }
     });
     connect(reply, &QNetworkReply::downloadProgress, this,
             [this](qint64 got, qint64 total) {
@@ -138,18 +174,22 @@ void Updater::download()
     });
     connect(reply, &QNetworkReply::finished, this, [this, reply, f, outPath]() {
         reply->deleteLater();
-        f->write(reply->readAll());
+        if (m_writeError.isEmpty() &&
+            (!writeAll(f, reply->readAll()) || !f->flush()))
+            m_writeError = f->errorString();
         f->close();
         f->deleteLater();
 
         m_downloading = false;
-        if (reply->error() == QNetworkReply::NoError) {
+        if (reply->error() == QNetworkReply::NoError && m_writeError.isEmpty() &&
+            QFileInfo(outPath).size() > 0) {
             m_downloadedPath = outPath;
             m_progress = 100;
         } else {
             QFile::remove(outPath);
             m_progress = 0;
-            emit downloadFailed(reply->errorString());
+            emit downloadFailed(!m_writeError.isEmpty() ? m_writeError :
+                (reply->error() == QNetworkReply::NoError ? tr("Empty update package") : reply->errorString()));
         }
         emit stateChanged();
     });

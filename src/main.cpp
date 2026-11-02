@@ -42,6 +42,7 @@ void logToFile(QtMsgType type, const QMessageLogContext&, const QString& msg) {
 #include "core/app_controller.h"
 #include "core/settings.h"
 #include "core/paths.h"
+#include "platform/instance_activation.h"
 
 namespace ua::platform {
 bool acquireSingleInstance(const QString& key);
@@ -67,11 +68,12 @@ int main(int argc, char* argv[])
     // platform widget chrome; everything is painted by us.
     QQuickStyle::setStyle(QStringLiteral("Basic"));
 
-    // Single-instance guard: if another Ua is running, we exit silently.
-    // (Platform layer handles the "activate existing window" IPC later.)
-    if (!ua::platform::acquireSingleInstance(QStringLiteral("UaToolbox.SingleInstance"))) {
-        return 0;
+    const QString instanceKey = QStringLiteral("UaToolbox.SingleInstance");
+    if (!ua::platform::acquireSingleInstance(instanceKey)) {
+        return ua::platform::InstanceActivation::notify(instanceKey) ? 0 : 1;
     }
+    ua::platform::InstanceActivation activation(instanceKey);
+    if (!activation.listen()) qWarning() << "Could not start window activation listener";
 
     // Load the bundled Fluent UI System Icons font so every platform draws
     // the same glyphs (Windows still has Segoe MDL2 Assets but we standardise
@@ -99,6 +101,7 @@ int main(int argc, char* argv[])
     if (auto* window = qobject_cast<QWindow*>(engine.rootObjects().first())) {
         ua::platform::applyWindowEffects(window, /*micaEnabled=*/true);
         controller.attachMainWindow(window);
+        activation.setHandler([&controller] { controller.showMainWindow(); });
     }
 
     return app.exec();

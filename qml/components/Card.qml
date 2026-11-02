@@ -32,6 +32,7 @@ Rectangle {
         width: 28; height: 28
         radius: 6
         color: {
+            if (root.item && root.item.logo) return "#F4F4F4"
             if (root.item && root.item.framed) return "transparent"
             return Theme.dark ? Qt.rgba(1,1,1,0.08) : Qt.rgba(0,0,0,0.048)
         }
@@ -43,7 +44,7 @@ Rectangle {
             visible: root.item && root.item.logo && root.item.logo !== ""
             fillMode: Image.PreserveAspectFit
             smooth: true
-            // Rasterise SVG at a comfortable size so scaling stays crisp
+            // Decode above the display size for crisp high-DPI rendering.
             sourceSize: Qt.size(64, 64)
         }
         IconGlyph {
@@ -65,6 +66,7 @@ Rectangle {
             anchors { right: parent.right; bottom: parent.bottom; rightMargin: -2; bottomMargin: -2 }
             color: {
                 if (!root.item) return "#4CAF50"
+                if (root.item.state === 3) return "#F97316"
                 if (root.item.state === 1) {
                     if (root.item.upgraded) return "#F97316"
                     return "#4CAF50"
@@ -107,11 +109,12 @@ Rectangle {
                 if (!root.item) return ""
                 if (!root.item.supported) return root.item.sub || ""
                 if (!root.item.detected)  return (Strings.lang, Strings.t(Strings.ToolNotFound))
-                if (root.item.state === 1 && root.item.upgraded)
+                if (root.item.upgraded)
                     return Strings.lang === 0 ? "宿主已升级，需重装" : "Host upgraded, reinstall"
                 switch (root.item.state) {
                 case 1:  return (Strings.lang, Strings.t(Strings.Injected))
                 case 2:  return (Strings.lang, Strings.t(Strings.FileHasContent))
+                case 3:  return (Strings.lang, Strings.t(Strings.NeedsRepair))
                 default: return (Strings.lang, Strings.t(Strings.NotInjected))
                 }
             }

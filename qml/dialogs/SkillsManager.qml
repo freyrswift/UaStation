@@ -1,4 +1,5 @@
 import QtQuick
+import QtQuick.Controls
 import UaApp
 
 Item {
@@ -201,15 +202,28 @@ Item {
 
                 // Left: name
                 Text {
-                    anchors { left: parent.left; verticalCenter: parent.verticalCenter; leftMargin: 10 }
+                    objectName: "skillName"
+                    anchors { left: parent.left; right: statusRow.left; verticalCenter: parent.verticalCenter
+                              leftMargin: 10; rightMargin: 8 }
                     text: modelData.dirName
                     color: Theme.text
                     font.pixelSize: 12
+                    elide: Text.ElideRight
                 }
                 // Right: count badge + × delete, equidistant from edge
                 Row {
+                    id: statusRow
+                    objectName: "skillStatus"
                     anchors { right: parent.right; verticalCenter: parent.verticalCenter; rightMargin: 6 }
                     spacing: 4
+
+                    Text {
+                        anchors.verticalCenter: parent.verticalCenter
+                        visible: modelData.missingAssets && modelData.missingAssets.length > 0
+                        text: (Strings.lang, Strings.t(Strings.SkillAssetsMissing))
+                        color: Theme.dark ? "#F7B267" : "#A44A12"
+                        font.pixelSize: 10
+                    }
 
                     // Small badge showing N tools
                     Rectangle {
@@ -263,6 +277,19 @@ Item {
                     anchors.fill: parent
                     hoverEnabled: true
                     acceptedButtons: Qt.NoButton
+                }
+                ToolTip {
+                    id: missingTip
+                    visible: hoverMa.containsMouse && modelData.missingAssets && modelData.missingAssets.length > 0
+                    text: modelData.missingAssets ? modelData.missingAssets.join("\n") : ""
+                    delay: 400
+                    width: Math.min(320, root.width - 32)
+                    contentItem: Text {
+                        text: missingTip.text
+                        color: Theme.text
+                        font.pixelSize: 11
+                        wrapMode: Text.Wrap
+                    }
                 }
             }
         }

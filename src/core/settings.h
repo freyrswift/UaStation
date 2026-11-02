@@ -20,6 +20,7 @@ class Settings : public QObject
 
     Q_PROPERTY(int  themeMode READ themeMode  WRITE setThemeMode  NOTIFY themeModeChanged)
     Q_PROPERTY(bool disclaimerAccepted READ disclaimerAccepted WRITE setDisclaimerAccepted NOTIFY disclaimerAcceptedChanged)
+    Q_PROPERTY(bool systemIsDark READ systemIsDark NOTIFY systemIsDarkChanged)
 
 public:
     enum ThemeMode : int { System = 0, Dark = 1, Light = 2 };
@@ -40,6 +41,7 @@ public:
 signals:
     void themeModeChanged();
     void disclaimerAcceptedChanged();
+    void systemIsDarkChanged();
 
 private:
     explicit Settings(QObject* parent = nullptr);

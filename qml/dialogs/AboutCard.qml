@@ -82,6 +82,9 @@ Item {
                     color: upMa.containsMouse ? Theme.accent : Qt.darker(Theme.accent, 1.15)
                     Text {
                         anchors.centerIn: parent
+                        width: parent.width - 12
+                        horizontalAlignment: Text.AlignHCenter
+                        elide: Text.ElideRight
                         text: {
                             if (Updater.checking)
                                 return (Strings.lang, Strings.t(Strings.UpdateCheck))
@@ -93,6 +96,8 @@ Item {
                             if (Updater.available)
                                 return (Strings.lang, Strings.t(Strings.UpdateBtn))
                                        + " " + Updater.latestVersion
+                            if (Updater.checkFailed)
+                                return (Strings.lang, Strings.t(Strings.UpdateCheckFailed))
                             if (Updater.checked)
                                 return (Strings.lang, Strings.t(Strings.UpdateLatest))
                             return (Strings.lang, Strings.t(Strings.CheckUpdate))

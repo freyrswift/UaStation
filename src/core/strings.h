@@ -65,6 +65,11 @@ public:
         SeepMcp, SeepMcpSub,
         HintNewSession, HintReloadWindow, HintRestartApp,
         ErrTooLong,
+        ErrInvalidState, ErrTargetChanged,
+        NeedsRepair, UpdateCheckFailed,
+        SkillAssetsMissing,
+        UpdateDownloadFailed,
+        NoticeReadConfirm, NoticeUpdated,
         _Count,
     };
     Q_ENUM(StringId)

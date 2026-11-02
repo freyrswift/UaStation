@@ -25,18 +25,20 @@ constexpr std::array<std::array<const char*, 2>, Strings::_Count> kTable {{
     { "语言",                "Language" },
     { "中文",                "中文" },
     { "English",             "English" },
-    { "免责声明",            "Disclaimer" },
-    { "本工具完全免费，仅供学习和授权安全研究使用。\n\n"
-      "1. 用户应确保在合法授权范围内使用本工具，对使用本工具所产生的一切后果自行承担责任。\n\n"
-      "2. 本工具不收取任何费用。如果你是花钱购买的，说明你被骗了，请立即退款。\n\n"
-      "3. 作者不对因使用本工具导致的任何直接或间接损失承担责任。\n\n"
-      "4. 继续使用即表示你已阅读并同意以上条款。",
-      "This tool is completely free and is intended solely for learning and authorized security research.\n\n"
-      "1. Users must ensure they use this tool within legally authorized scope and bear full responsibility for any consequences.\n\n"
-      "2. This tool is free of charge. If you paid for it, you were scammed — request a refund immediately.\n\n"
-      "3. The author is not liable for any direct or indirect damages caused by using this tool.\n\n"
-      "4. By continuing, you agree to the above terms." },
-    { "我已了解",            "I Understand" },
+    { "使用公告",            "Usage Notice" },
+    { "请在使用 Ua 工具箱前阅读本公告，并遵守《中华人民共和国网络安全法》《中华人民共和国数据安全法》《中华人民共和国个人信息保护法》《中华人民共和国民法典》等适用法律法规。\n\n"
+      "1. 合法使用与授权\n仅在拥有合法权利、取得有效授权或法律允许的范围内操作系统、软件、文件和数据。不得利用本工具非法侵入、干扰或破坏网络和计算机系统，窃取数据，或实施侵害他人合法权益的行为。本工具的安装不产生对第三方系统的操作授权。\n\n"
+      "2. 数据与个人信息保护\n处理个人信息应有合法依据，遵循目的明确、最小必要原则，依法履行告知、同意等义务并采取保护措施。请勿擅自输入、上传、泄露国家秘密、商业秘密、他人隐私或其他受保护数据；涉及重要数据、数据出境等事项时，应另行遵守相应规定。\n\n"
+      "3. 知识产权与第三方服务\n尊重软件、代码、模型、文档等内容的知识产权，遵守相应许可、合同和适用的平台规则。提示词或配置调整不免除这些义务。\n\n"
+      "4. 配置变更与 AI 输出\n安装、卸载等操作可能修改本地配置，请先核对目标路径并备份重要文件。AI 输出可能存在错误或遗漏，请在执行命令、发布内容或作出决定前人工复核，不将其视为专业意见或结果保证。\n\n"
+      "5. 责任与公告效力\n使用者和提供者各自依法承担相应责任。本公告不排除或限制依法不得排除或限制的责任，不构成对违法用途的许可，也不代替具体业务所需的许可、评估或其他法定义务。",
+      "Before using Ua Toolbox, read this notice and comply with applicable laws, including the PRC Cybersecurity Law, Data Security Law, Personal Information Protection Law, and Civil Code.\n\n"
+      "1. Lawful use and permission\nOperate on systems, software, files, and data only with lawful rights, valid permission, or another legal basis. Do not unlawfully access, disrupt, or damage systems, steal data, or infringe others' rights. Installing this tool does not authorize operations on third-party systems.\n\n"
+      "2. Data and personal information\nUse a lawful basis, a clear purpose, and data minimization. Meet applicable notice, consent, and protection duties. Do not improperly enter, upload, or disclose state secrets, trade secrets, private information, or other protected data. Additional rules may apply to important data or cross-border transfers.\n\n"
+      "3. Intellectual property and third-party services\nRespect intellectual property and applicable licenses, contracts, and platform rules. Prompts or configuration changes do not remove these duties.\n\n"
+      "4. Configuration changes and AI output\nInstallation and removal may change local configuration. Verify paths and back up important files first. AI output may contain errors or omissions. Review commands, content, and decisions before acting; output is not professional advice or a guarantee.\n\n"
+      "5. Responsibility and effect\nUsers and providers each bear their respective legal responsibilities. This notice does not exclude or limit liability that cannot lawfully be excluded or limited, permit unlawful use, or replace required permissions, assessments, or other legal duties." },
+    { "继续使用",            "Continue" },
     { "暂不支持自动安装",    "Auto-install not supported" },
     { "未检测到该工具",      "Tool not detected" },
     { "已安装",              "Installed" },
@@ -69,8 +71,8 @@ constexpr std::array<std::array<const char*, 2>, Strings::_Count> kTable {{
     { "加入QQ群",             "Join QQ Group" },
     { "交流与反馈",           "Chat and feedback" },
     { "Ua 工具箱  版本 ",      "Ua Toolbox  Version " },
-    { "本工具仅供学习与授权安全研究使用。用户应在合法授权范围内使用，作者不承担任何法律责任。本工具完全免费且开源。",
-      "For educational and authorized security research only. Users are responsible for legal compliance. The author assumes no liability. This tool is free and open source." },
+    { "本工具免费开源。请遵守启动时的《使用公告》及适用法律法规，使用者与提供者各自依法承担相应责任。",
+      "This tool is free and open source. Follow the startup Usage Notice and applicable laws. Users and providers each bear their respective legal responsibilities." },
     { UA_VERSION_STR,         UA_VERSION_STR },
     { "请先选择一个提示词",   "Please select a prompt first" },
     { "读取提示词文件失败",   "Failed to read prompt file" },
@@ -107,7 +109,7 @@ constexpr std::array<std::array<const char*, 2>, Strings::_Count> kTable {{
     { "显示窗口",             "Show Window" },
     { "Ua 工具箱",            "Ua Toolbox" },
     { "正在下载更新...",      "Downloading update..." },
-    { "下载完成，即将重启",   "Download complete, restarting..." },
+    { "下载完成，打开文件夹", "Download complete, open folder" },
     { "立即更新",             "Update Now" },
     { " 安装成功，请重启 AI 工具生效", " installed, please restart the AI tool" },
     { "自动更新下载失败。是否打开浏览器手动下载最新版本？",
@@ -136,6 +138,14 @@ constexpr std::array<std::array<const char*, 2>, Strings::_Count> kTable {{
     { "重新加载窗口后生效",     "Reload the window to apply" },
     { "重启应用后生效",         "Restart the app to apply" },
     { "内容超出该工具的长度上限", "Content exceeds this tool's length limit" },
+    { "安装记录损坏或版本不兼容，已保留原文件：%1", "Install state is invalid or incompatible. Original files preserved: %1" },
+    { "文件在安装后发生变更，已停止卸载并保留现状：%1", "File changed after installation. Uninstall stopped; current files preserved: %1" },
+    { "安装不完整，请重新安装", "Installation needs repair" },
+    { "检查更新失败，点击重试", "Update check failed, retry" },
+    { "缺附件", "Missing assets" },
+    { "更新下载失败：", "Update download failed: " },
+    { "我已阅读并理解上述公告", "I have read and understood this notice" },
+    { "更新日期：2026年11月1日", "Updated: November 1, 2026" },
 }};
 
 constexpr const char* kLangSettingsKey = "ui/lang";

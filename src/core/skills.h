@@ -5,6 +5,7 @@
 #include <QString>
 #include <QStringList>
 #include <QVector>
+#include <functional>
 
 namespace ua::core {
 
@@ -12,22 +13,34 @@ struct SkillStatus {
     QString dirName;
     int     installedCount; // Across how many AI tools
     int     category;       // SkillCategory enum value
+    QStringList missingAssets; // Local references mentioned by SKILL.md but absent from the bundle
 };
 
 class Skills
 {
 public:
+    using ProgressCallback = std::function<void(int, int, const QString&)>;
     // itemId is a tool with a non-empty skillsDirRel.
-    // Install all embedded skills (:/skills/<name>/SKILL.md) into <home>/<skillsDirRel>/<name>/.
+    // Install every embedded package file, preserving its relative directory.
     static int installFor(const QString& itemId);
 
     // Same, into an explicit absolute dir (products that resolve their own
     // config folder, e.g. WorkBuddy CN vs international). Returns the names
     // actually written.
-    static QStringList installInto(const QString& itemId, const QString& absSkillsDir);
+    static QStringList installInto(const QString& itemId, const QString& absSkillsDir,
+                                   bool* ok = nullptr, ProgressCallback progress = {});
 
     // Delete the given skill folders from an absolute dir.
     static int removeFrom(const QString& absSkillsDir, const QStringList& names);
+    static int removeFrom(const QString& absSkillsDir, const QStringList& names,
+                          const QString& itemId, bool* ok = nullptr);
+
+    // Last installed location, retained when an environment override changes.
+    static QString installedRoot(const QString& itemId);
+    static QStringList installedNames(const QString& itemId);
+    static bool intact(const QString& itemId, const QStringList& expectedNames);
+    static QStringList missingBundledAssets(const QString& skillDirName);
+    static QStringList transactionFiles(const QString& itemId, const QString& root, const QStringList& names);
 
     // Compact "name: what it is for" list of the shipped skills, for products
     // that do not advertise skills to the model themselves.

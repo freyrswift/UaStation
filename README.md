@@ -12,7 +12,7 @@
 
 ## 中文
 
-一键给 **18 款 AI 编程工具**注入提示词和技能的桌面工具。原生 Qt，20 MB，仅 Windows。
+一键给 **19 款 AI 编程工具**安装提示词和技能的 Qt 桌面工具。当前已本地验证 Windows x64；构建流程包含 Windows x64、macOS ARM64 / Intel、Linux x64 四个目标，其他平台以对应 CI 构建和测试结果为准。
 
 <p align="center">
   <img src="docs/screenshots/main-editor.png" width="460" alt="主界面" />
@@ -28,7 +28,7 @@
 
 卸载：选中已装的工具点"卸载"，备份自动还原。
 
-### 支持的 AI 工具（18 款）
+### 支持的 AI 工具（19 款）
 
 | # | 工具 | 开发者 | 注入方式 |
 |---|---|---|---|
@@ -46,10 +46,11 @@
 | 12 | CodeBuddy | 腾讯 | `CODEBUDDY.md` 标记块 |
 | 13 | Cline | Cline Bot | `~/Documents/Cline/Rules/Ua.md` |
 | 14 | Copilot CLI | GitHub | `copilot-instructions.md` 标记块 |
-| 15 | Grok | xAI | `~/.grok/AGENTS.md` |
-| 16 | 豆包 | 字节跳动 | `%LOCALAPPDATA%\Doubao\...\.user_skills\ua-doubao\SKILL.md` |
-| 17 | MiniMax | mimocode | `~/.config/mimocode/AGENTS.md` |
-| 18 | Kimi | Moonshot AI | `~/.kimi-code/AGENTS.md` |
+| 15 | Visual Studio Code | Microsoft | `~/.copilot/instructions/Ua.instructions.md` |
+| 16 | Grok | xAI | `~/.grok/AGENTS.md` |
+| 17 | 豆包 | 字节跳动 | `%LOCALAPPDATA%\Doubao\...\.user_skills\ua-doubao\SKILL.md` |
+| 18 | MiniMax | mimocode | `~/.config/mimocode/AGENTS.md` |
+| 19 | Kimi | Moonshot AI | `~/.kimi-code/AGENTS.md` |
 
 每个工具的配置目录都支持**环境变量覆盖**（`CODEX_HOME` / `CLAUDE_CONFIG_DIR` / `KIMI_CODE_HOME` 等），参见 [docs/env-vars.md](docs/env-vars.md)。
 
@@ -85,6 +86,16 @@ cmake --install build --prefix dist
 
 CI 自动构建见 [`.github/workflows/build.yml`](.github/workflows/build.yml)。
 
+macOS、Linux 的构建命令、产物名称和验证范围见 [跨平台构建](docs/building.md)。
+
+### Visual Studio Code
+
+现在提供独立的 **Visual Studio Code** 卡片和 Logo。安装目标为
+`~/.copilot/instructions/Ua.instructions.md`，文件带有 `applyTo: "**"` 元数据，
+用于 VS Code Copilot 的用户级指令；Copilot CLI 仍使用独立的
+`~/.copilot/copilot-instructions.md` 入口。自定义目录可通过 `VSCODE_COPILOT_HOME`
+覆盖。
+
 ### ⚠️ 禁止商用
 
 本工具完全免费、开源。严禁出售、倒卖、打包收费或向他人收费。
@@ -112,7 +123,7 @@ QQ 群：**535041466** · [点击加入](https://qm.qq.com/q/3XsJIxaZde)
 
 ## English
 
-One-click prompt and skill installer for **18 AI coding tools**. Native Qt, 20 MB, Windows only.
+One-click prompt and skill installer for **19 AI coding tools**. Native Qt, 20 MB, Windows only.
 
 ### Quick Start
 
@@ -126,7 +137,7 @@ To uninstall: select an installed tool, click Uninstall — original files are r
 
 ### Supported Tools
 
-Claude Code, Codex, DeepSeek Harness, Cursor, Devin Desktop (ex-Windsurf), ZCode, OpenCode, WorkBuddy, Gemini CLI, Qwen Code, Trae, CodeBuddy, Cline, Copilot CLI, Grok, Doubao, MiniMax, Kimi. See the Chinese table above for injection details.
+Claude Code, Codex, DeepSeek Harness, Cursor, Devin Desktop (ex-Windsurf), ZCode, OpenCode, WorkBuddy, Gemini CLI, Qwen Code, Trae, CodeBuddy, Cline, Copilot CLI, Visual Studio Code, Grok, Doubao, MiniMax, Kimi. See the Chinese table above for injection details.
 
 ### Features
 
@@ -152,6 +163,8 @@ cmake -S . -B build -G Ninja -DCMAKE_BUILD_TYPE=Release
 cmake --build build
 cmake --install build --prefix dist
 ```
+
+The workflow defines Windows x64, macOS ARM64 / Intel, and Linux x64 jobs. Windows is locally verified; other targets require a successful native CI run. See [cross-platform builds](docs/building.md) for commands and package names.
 
 ### License
 

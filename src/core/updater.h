@@ -23,6 +23,7 @@ class Updater : public QObject
 
     Q_PROPERTY(bool    checked          READ checked          NOTIFY stateChanged)
     Q_PROPERTY(bool    checking         READ checking         NOTIFY stateChanged)
+    Q_PROPERTY(bool    checkFailed      READ checkFailed      NOTIFY stateChanged)
     Q_PROPERTY(bool    available        READ available        NOTIFY stateChanged)
     Q_PROPERTY(QString latestVersion    READ latestVersion    NOTIFY stateChanged)
     Q_PROPERTY(bool    downloading      READ downloading      NOTIFY stateChanged)
@@ -35,6 +36,7 @@ public:
 
     bool    checked() const         { return m_checked; }
     bool    checking() const        { return m_checking; }
+    bool    checkFailed() const     { return m_checkFailed; }
     bool    available() const;
     QString latestVersion() const   { return m_latest; }
     bool    downloading() const     { return m_downloading; }
@@ -56,10 +58,12 @@ private:
     QNetworkAccessManager* m_net = nullptr;
     bool    m_checked = false;
     bool    m_checking = false;
+    bool    m_checkFailed = false;
     bool    m_downloading = false;
     int     m_progress = 0;
     QString m_latest;
     QString m_downloadedPath;  // Local file after a successful download
+    QString m_writeError;
 };
 
 } // namespace ua::core
