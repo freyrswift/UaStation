@@ -70,6 +70,9 @@ public:
         SkillAssetsMissing,
         UpdateDownloadFailed,
         NoticeReadConfirm, NoticeUpdated,
+        UpdateTitle, UpdateApplying, UpdateWaitingForTask, UpdateRestartNotice,
+        UpdateFailedTitle, UpdateRetry, UpdateLater, UpdateReleasePage, UpdateVersionLine,
+        UpdateReadyManual, UpdateManualInstallNotice,
         _Count,
     };
     Q_ENUM(StringId)

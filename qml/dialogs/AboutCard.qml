@@ -78,6 +78,7 @@ Item {
                     }
                 }
                 Rectangle {
+                    objectName: "aboutUpdateButton"
                     width: 140; height: 28; radius: 6
                     color: upMa.containsMouse ? Theme.accent : Qt.darker(Theme.accent, 1.15)
                     Text {
@@ -86,13 +87,15 @@ Item {
                         horizontalAlignment: Text.AlignHCenter
                         elide: Text.ElideRight
                         text: {
+                            if (Updater.applying)
+                                return (Strings.lang, Strings.t(Strings.UpdateApplying))
                             if (Updater.checking)
                                 return (Strings.lang, Strings.t(Strings.UpdateCheck))
                             if (Updater.downloading)
                                 return (Strings.lang, Strings.t(Strings.UpdateDownloading))
                                        + " " + Updater.downloadProgress + "%"
                             if (Updater.ready)
-                                return (Strings.lang, Strings.t(Strings.UpdateReady))
+                                return (Strings.lang, Strings.t(Updater.supportsAutoInstall ? Strings.UpdateReady : Strings.UpdateReadyManual))
                             if (Updater.available)
                                 return (Strings.lang, Strings.t(Strings.UpdateBtn))
                                        + " " + Updater.latestVersion
@@ -112,9 +115,9 @@ Item {
                         hoverEnabled: true
                         cursorShape: Qt.PointingHandCursor
                         onClicked: {
-                            if (Updater.downloading)        return
+                            if (Updater.downloading || Updater.checking || Updater.applying) return
                             if (Updater.ready)              { Updater.applyUpdate(); return }
-                            if (Updater.available)          { Updater.download();    return }
+                            if (Updater.available)          { Updater.startAutomaticUpdate(); return }
                             Updater.check()
                         }
                     }

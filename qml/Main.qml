@@ -15,7 +15,7 @@ Window {
 
     // Only keep a hidden instance when the tray can bring it back.
     onClosing: (close) => {
-        if (root.installInProgress) { close.accepted = false; return }
+        if (root.installInProgress || Updater.applying) { close.accepted = false; return }
         if (root.disclaimerOpen) {
             close.accepted = true
             app.quit()
@@ -40,12 +40,23 @@ Window {
         function onDownloadFailed(reason) {
             root.showToast(Strings.t(Strings.UpdateDownloadFailed) + reason)
         }
+        function onStateChanged() {
+            if (Updater.automatic && Updater.checkFailed && !Updater.available && !Updater.checking) {
+                if (!root.updateCheckFailureShown) {
+                    root.updateCheckFailureShown = true
+                    root.showToast(Strings.t(Strings.UpdateCheckFailed))
+                }
+            } else if (Updater.checking) {
+                root.updateCheckFailureShown = false
+            }
+        }
     }
 
     // Drive the Theme singleton from Settings. Theme can't `import UaApp`
     // itself without breaking its own property initialisation; see Theme.qml.
     Binding { target: Theme; property: "mode";         value: Settings.themeMode }
     Binding { target: Theme; property: "systemIsDark"; value: Settings.systemIsDark }
+    Binding { target: Updater; property: "operationBusy"; value: root.installInProgress }
 
     // ---------- state ----------
     property int    activeTab: 0
@@ -54,6 +65,17 @@ Window {
     property bool   aboutOpen: false
     property bool   settingsMenuOpen: false
     property bool   disclaimerOpen: true
+    property bool   updateCheckFailureShown: false
+    readonly property bool updateDialogOpen: !root.disclaimerOpen && Updater.automatic &&
+        !(Updater.checkFailed && !Updater.available) &&
+        (Updater.available || Updater.downloading || Updater.ready || Updater.applying || Updater.error.length > 0)
+    onUpdateDialogOpenChanged: {
+        if (updateDialogOpen) {
+            root.showNormal()
+            root.raise()
+            root.requestActivate()
+        }
+    }
     property string toastText: ""
     property string searchFilter: ""
     property var    editorModel: app.editorItems
@@ -122,7 +144,7 @@ Window {
     // ---------- shell ----------
     Rectangle {
         id: shell
-        enabled: !root.disclaimerOpen
+        enabled: !root.disclaimerOpen && !root.updateDialogOpen && !Updater.applying
         anchors.fill: parent
         radius: Theme.radius
         // Fully opaque so Linux / macOS / Win10 (no Mica) don't bleed through.
@@ -294,6 +316,7 @@ Window {
     // ---------- overlays ----------
     SettingsMenu {
         anchors { right: parent.right; top: parent.top; topMargin: 44; rightMargin: 8 }
+        enabled: !root.updateDialogOpen && !Updater.applying
         open: root.settingsMenuOpen
         onCloseRequested: root.settingsMenuOpen = false
         onAboutRequested: { root.settingsMenuOpen = false; root.aboutOpen = true }
@@ -302,6 +325,7 @@ Window {
     Loader {
         anchors.fill: parent
         active: root.openDialogItemId !== ""
+        enabled: !root.updateDialogOpen && !Updater.applying
         sourceComponent: Component {
             InjectDialog {
                 itemId: root.openDialogItemId
@@ -329,6 +353,7 @@ Window {
     Loader {
         anchors.fill: parent
         active: root.skillManagerOpen
+        enabled: !root.updateDialogOpen && !Updater.applying
         sourceComponent: Component {
             SkillsManager { onCloseRequested: root.skillManagerOpen = false }
         }
@@ -337,8 +362,20 @@ Window {
     Loader {
         anchors.fill: parent
         active: root.aboutOpen
+        enabled: !root.updateDialogOpen && !Updater.applying
         sourceComponent: Component {
             AboutCard { onCloseRequested: root.aboutOpen = false }
+        }
+    }
+
+    Loader {
+        objectName: "updateDialogLoader"
+        anchors.fill: parent
+        active: root.updateDialogOpen
+        z: 150
+        focus: active
+        sourceComponent: Component {
+            UpdateDialog { }
         }
     }
 
@@ -351,7 +388,7 @@ Window {
             Disclaimer {
                 onAccepted: {
                     root.disclaimerOpen = false
-                    Updater.check()
+                    Qt.callLater(function() { Updater.startAutomaticUpdate() })
                 }
                 onExitRequested: app.quit()
             }

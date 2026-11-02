@@ -34,6 +34,7 @@ public:
     // (and tray left-click->show) can target it.
     void attachMainWindow(QWindow* window);
     void showMainWindow();
+    void setUpdateInProgress(bool busy) { m_updateInProgress = busy; }
 
     QVariantList items();
     QVariantList editorItems();
@@ -98,6 +99,7 @@ private:
     mutable QVariantList m_snapshotCache;
     mutable bool         m_snapshotDirty = true;
     bool m_operationBusy = false;
+    bool m_updateInProgress = false;
 };
 
 } // namespace ua::core

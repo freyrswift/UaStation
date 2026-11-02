@@ -41,6 +41,7 @@ void logToFile(QtMsgType type, const QMessageLogContext&, const QString& msg) {
 
 #include "core/app_controller.h"
 #include "core/settings.h"
+#include "core/updater.h"
 #include "core/paths.h"
 #include "platform/instance_activation.h"
 
@@ -87,6 +88,9 @@ int main(int argc, char* argv[])
     // AppController is the single QObject bridge QML talks to. It owns the
     // Items/Skills/Prompts models and dispatches install/uninstall/update calls.
     ua::core::AppController controller;
+    auto* updater = ua::core::Updater::instance();
+    QObject::connect(updater, &ua::core::Updater::stateChanged, &controller,
+                     [&controller, updater] { controller.setUpdateInProgress(updater->applying()); });
 
     QQmlApplicationEngine engine;
     engine.rootContext()->setContextProperty(QStringLiteral("app"), &controller);

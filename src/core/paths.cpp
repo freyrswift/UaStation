@@ -6,6 +6,8 @@
 
 #include <QDir>
 #include <QFileInfo>
+#include <QProcess>
+#include <QSettings>
 #include <QStandardPaths>
 #include <QStringList>
 
@@ -152,45 +154,102 @@ static QString normalizedRoot(QString value)
     return QDir::cleanPath(QFileInfo(value).absoluteFilePath());
 }
 
+// Installer registry values are paths or quoted commands, never commands to run.
+#if defined(Q_OS_WIN)
+static bool vscodeRegisteredExecutableDetected()
+{
+    const QStringList subkeys = {
+        QStringLiteral("Microsoft/Windows/CurrentVersion/App Paths/code.exe"),
+        QStringLiteral("Microsoft/Windows/CurrentVersion/App Paths/code-insiders.exe"),
+        QStringLiteral("Classes/Applications/Code.exe/shell/open/command"),
+        QStringLiteral("Classes/Applications/Code - Insiders.exe/shell/open/command"),
+    };
+    for (const auto format : {QSettings::Registry64Format, QSettings::Registry32Format}) {
+        for (const auto& hive : {QStringLiteral("HKEY_CURRENT_USER/Software/"),
+                                 QStringLiteral("HKEY_LOCAL_MACHINE/Software/")}) {
+            for (const QString& subkey : subkeys) {
+                QSettings settings(hive + subkey, format);
+                QString value = settings.value(QStringLiteral(".")).toString().trimmed();
+                if (value.startsWith(QLatin1Char('"'))) {
+                    const int end = value.indexOf(QLatin1Char('"'), 1);
+                    if (end < 0) continue;
+                    value = value.mid(1, end - 1);
+                } else if (subkey.endsWith(QLatin1String("/command"))) {
+                    value = QProcess::splitCommand(value).value(0);
+                }
+                if (value.isEmpty()) continue;
+                const QFileInfo executable(value);
+                const QString name = executable.fileName();
+                if ((name.compare(QLatin1String("Code.exe"), Qt::CaseInsensitive) == 0 ||
+                     name.compare(QLatin1String("Code - Insiders.exe"), Qt::CaseInsensitive) == 0) &&
+                    executable.isFile()) return true;
+            }
+        }
+    }
+    return false;
+}
+#endif
+
 static bool vscodeExecutableDetected()
 {
     const QStringList pathDirs = qEnvironmentVariable("PATH").split(
         QDir::listSeparator(), Qt::SkipEmptyParts);
-    for (const QString& dir : pathDirs) {
-        const QString base = QDir::cleanPath(dir + QStringLiteral("/code"));
-        if (QFileInfo(base).isExecutable() || QFileInfo(base + QStringLiteral(".exe")).isExecutable())
-            return true;
+    for (QString dir : pathDirs) {
+        dir = dir.trimmed();
+        if (dir.startsWith(QLatin1Char('"')) && dir.endsWith(QLatin1Char('"')))
+            dir = dir.mid(1, dir.size() - 2);
+        if (dir.isEmpty()) continue;
+        for (const auto& name : {QStringLiteral("code"), QStringLiteral("code-insiders")}) {
+            const QString base = QDir::cleanPath(dir + QLatin1Char('/') + name);
+            if (QFileInfo(base).isFile() && QFileInfo(base).isExecutable()) return true;
+#if defined(Q_OS_WIN)
+            for (const auto& suffix : {QStringLiteral(".exe"), QStringLiteral(".cmd")}) {
+                if (QFileInfo(base + suffix).isFile()) return true;
+            }
+#endif
+        }
     }
 
 #if defined(Q_OS_WIN)
-    const QString local = qEnvironmentVariable("LOCALAPPDATA");
-    const QString programFiles = qEnvironmentVariable("ProgramFiles");
-    const QString programFilesX86 = qEnvironmentVariable("ProgramFiles(x86)");
-    const QStringList roots = {
-        local + QStringLiteral("/Programs/Microsoft VS Code/Code.exe"),
-        local + QStringLiteral("/Programs/Microsoft VS Code Insiders/Code - Insiders.exe"),
-        programFiles + QStringLiteral("/Microsoft VS Code/Code.exe"),
-        programFiles + QStringLiteral("/Microsoft VS Code Insiders/Code - Insiders.exe"),
-        programFilesX86 + QStringLiteral("/Microsoft VS Code/Code.exe"),
-        programFilesX86 + QStringLiteral("/Microsoft VS Code Insiders/Code - Insiders.exe"),
-    };
+    QStringList roots;
+    for (const char* key : {"LOCALAPPDATA", "ProgramFiles", "ProgramFiles(x86)"}) {
+        QString base = qEnvironmentVariable(key).trimmed();
+        if (base.isEmpty()) continue;
+        if (qstrcmp(key, "LOCALAPPDATA") == 0) base += QStringLiteral("/Programs");
+        roots << base + QStringLiteral("/Microsoft VS Code/Code.exe")
+              << base + QStringLiteral("/Microsoft VS Code Insiders/Code - Insiders.exe");
+    }
 #elif defined(Q_OS_MACOS)
     const QStringList roots = {
         QStringLiteral("/Applications/Visual Studio Code.app"),
         QStringLiteral("/Applications/Visual Studio Code - Insiders.app"),
+        homeDir() + QStringLiteral("/Applications/Visual Studio Code.app"),
+        homeDir() + QStringLiteral("/Applications/Visual Studio Code - Insiders.app"),
     };
 #else
     const QStringList roots = {
         QStringLiteral("/usr/bin/code"),
+        QStringLiteral("/usr/bin/code-insiders"),
         QStringLiteral("/usr/share/code/code"),
+        QStringLiteral("/usr/share/code-insiders/code-insiders"),
         QStringLiteral("/opt/visual-studio-code/code"),
+        QStringLiteral("/snap/bin/code"),
+        QStringLiteral("/snap/bin/code-insiders"),
     };
 #endif
 
     for (const QString& root : roots) {
-        if (!root.isEmpty() && QFileInfo::exists(root)) return true;
+#if defined(Q_OS_MACOS)
+        if (QFileInfo(root + QStringLiteral("/Contents/MacOS/Electron")).isFile()) return true;
+#else
+        if (QFileInfo(root).isFile()) return true;
+#endif
     }
+#if defined(Q_OS_WIN)
+    return vscodeRegisteredExecutableDetected();
+#else
     return false;
+#endif
 }
 
 static QString defaultRootRelative(const Item& item)
@@ -291,7 +350,7 @@ bool toolDetectedById(const QString& itemId)
         // before the first instruction file exists, so detect the editor
         // independently of that directory.
         const QString override = toolHomeOverride(itemId);
-        if (!override.isEmpty()) return rootHasRealContent(override);
+        if (!override.isEmpty()) return rootHasRealContent(override) || vscodeExecutableDetected();
         const QString instructions = QDir::cleanPath(
             toolConfigRoot(itemId) + QStringLiteral("/instructions"));
         return rootHasRealContent(instructions) || vscodeExecutableDetected();

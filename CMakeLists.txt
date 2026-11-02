@@ -11,7 +11,7 @@ if(CMAKE_HOST_APPLE AND NOT DEFINED CMAKE_OSX_DEPLOYMENT_TARGET)
 endif()
 
 project(Ua
-    VERSION 2.2.0
+    VERSION 2.2.1
     DESCRIPTION "Ua Toolbox - cross-platform AI tool prompt installer"
     LANGUAGES CXX
 )
@@ -84,6 +84,8 @@ target_sources(Ua PRIVATE
     src/core/settings.cpp
     src/core/updater.h
     src/core/updater.cpp
+    src/core/update_installer.h
+    src/core/update_installer.cpp
     src/core/app_controller.h
     src/core/app_controller.cpp
     src/platform/instance_activation.cpp
@@ -150,6 +152,7 @@ qt_add_qml_module(Ua
         qml/dialogs/InjectDialog.qml
         qml/dialogs/SkillsManager.qml
         qml/dialogs/AboutCard.qml
+        qml/dialogs/UpdateDialog.qml
         qml/dialogs/Disclaimer.qml
         qml/theme/Theme.qml
 )

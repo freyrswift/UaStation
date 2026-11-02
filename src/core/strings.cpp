@@ -109,7 +109,7 @@ constexpr std::array<std::array<const char*, 2>, Strings::_Count> kTable {{
     { "显示窗口",             "Show Window" },
     { "Ua 工具箱",            "Ua Toolbox" },
     { "正在下载更新...",      "Downloading update..." },
-    { "下载完成，打开文件夹", "Download complete, open folder" },
+    { "安装并重新启动",         "Install and Restart" },
     { "立即更新",             "Update Now" },
     { " 安装成功，请重启 AI 工具生效", " installed, please restart the AI tool" },
     { "自动更新下载失败。是否打开浏览器手动下载最新版本？",
@@ -146,6 +146,17 @@ constexpr std::array<std::array<const char*, 2>, Strings::_Count> kTable {{
     { "更新下载失败：", "Update download failed: " },
     { "我已阅读并理解上述公告", "I have read and understood this notice" },
     { "更新日期：2026年11月1日", "Updated: November 1, 2026" },
+    { "软件更新",              "Software Update" },
+    { "正在准备更新...",        "Preparing update..." },
+    { "正在等待当前任务完成...", "Waiting for the current task..." },
+    { "更新安装完成后将自动重新打开软件。", "The app will reopen automatically after installation." },
+    { "更新失败",              "Update failed" },
+    { "重试",                  "Retry" },
+    { "稍后",                  "Later" },
+    { "发布页面",              "Release Page" },
+    { "新版本 %1 / 当前 %2",    "New version %1 / Current %2" },
+    { "打开下载文件夹",        "Open Folder" },
+    { "下载完成后请解压或挂载更新包，退出当前软件后手动替换安装。", "Extract or mount the downloaded package, then quit the app and replace the installation manually." },
 }};
 
 constexpr const char* kLangSettingsKey = "ui/lang";

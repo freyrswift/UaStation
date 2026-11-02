@@ -79,8 +79,10 @@ static void selectFixture(const QString& root, const char* name) {
 class CloseFixture : public QObject {
     Q_OBJECT
     Q_PROPERTY(bool trayAvailable MEMBER trayAvailable)
+    Q_PROPERTY(bool applying MEMBER applying)
 public:
     bool trayAvailable = false;
+    bool applying = false;
     int quitCalls = 0;
     Q_INVOKABLE void quit() { ++quitCalls; }
 };
@@ -257,7 +259,49 @@ static void progressTests(const QString& root, const std::function<void(bool, co
     Injector::setProgressCallback({});
 }
 
+static void detectionRefreshTests(const QString& root, const std::function<void(bool, const char*)>& check) {
+    selectFixture(root, "detection-refresh");
+    AppController controller;
+    QWindow window;
+    controller.attachMainWindow(&window);
+    const auto codexDetected = [&]() {
+        for (const auto& item : controller.editorItems()) {
+            const auto value = item.toMap();
+            if (value.value("id").toString() == "codex") return value.value("detected").toBool();
+        }
+        return false;
+    };
+    check(!codexDetected(), "initial snapshot reflects absent tool");
+    const QString config = homeDir() + "/.codex/config.toml";
+    put(config, "model = \"fixture\"\n");
+    check(!codexDetected(), "cached snapshot awaits refresh after external installation");
+    controller.showMainWindow();
+    check(codexDetected(), "restoring the window detects an externally installed tool");
+    check(QFile::remove(config), "external uninstall fixture removed");
+    controller.showMainWindow();
+    check(!codexDetected(), "restoring the window detects an externally removed tool");
+    Injector::setProgressCallback({});
+}
+
 static void featureTests(const QString& root, const std::function<void(bool, const char*)>& check) {
+    detectionRefreshTests(root, check);
+    selectFixture(root, "update-lifecycle");
+    {
+        AppController controller;
+        controller.setUpdateInProgress(true);
+        check(!controller.install("codex", "unused") && !controller.uninstall("codex") &&
+              !controller.removeSkill("unused"), "update preparation blocks new configuration writes");
+        bool survivedQuit = false;
+        QTimer::singleShot(0, &controller, &AppController::quit);
+        QTimer::singleShot(20, &controller, [&] {
+            survivedQuit = true;
+            controller.setUpdateInProgress(false);
+            controller.quit();
+        });
+        QCoreApplication::exec();
+        check(survivedQuit, "tray quit waits until update preparation has finished");
+        Injector::setProgressCallback({});
+    }
     selectFixture(root, "workbuddy-native-root");
     qputenv("WORKBUDDY_HOME", (fixtureRoot + "/legacy-override").toUtf8());
     const QString nativeRoot = fixtureRoot + "/native-override";
@@ -503,6 +547,12 @@ int main(int argc, char** argv) {
         out << (ok ? "PASS " : "FAIL ") << name << '\n';
         out.flush();
     };
+
+    if (app.arguments().contains("--detection-refresh-only")) {
+        detectionRefreshTests(temp.path(), check);
+        out << checks << " checks, " << failures << " failures\n";
+        return failures == 0 ? 0 : 1;
+    }
 
     if (app.arguments().contains("--reliability-only")) {
         reliabilityTests(temp.path(), check);
@@ -896,6 +946,7 @@ int main(int argc, char** argv) {
     CloseFixture closeFixture;
     QQmlEngine engine;
     engine.rootContext()->setContextProperty("app", &closeFixture);
+    engine.rootContext()->setContextProperty("Updater", &closeFixture);
     QQmlComponent component(&engine);
     component.setData("import QtQuick\nimport QtQuick.Window\nWindow { id: root; visible: true; "
                       "property bool installInProgress: false; property bool disclaimerOpen: false; " +
@@ -909,6 +960,10 @@ int main(int argc, char** argv) {
         check(window && !window->close() && window->isVisible() && closeFixture.quitCalls == 0,
               "window close preserves active installation");
         if (window) window->setProperty("installInProgress", false);
+        closeFixture.applying = true;
+        check(window && !window->close() && window->isVisible() && closeFixture.quitCalls == 0,
+              "window close preserves update preparation");
+        closeFixture.applying = false;
         const bool closed = window && window->close();
         check(window && !window->isVisible() && (tray ? !closed && closeFixture.quitCalls == 0 :
               closed && closeFixture.quitCalls == 1), tray ? "close hides with tray" : "close exits without tray");

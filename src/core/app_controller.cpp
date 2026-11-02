@@ -87,6 +87,11 @@ AppController::~AppController() = default;
 void AppController::attachMainWindow(QWindow* window)
 {
     m_mainWindow = window;
+    if (window) {
+        connect(window, &QWindow::activeChanged, this, [this, window]() {
+            if (window->isActive() && !m_operationBusy) refreshStates();
+        });
+    }
 }
 
 bool AppController::trayAvailable() const
@@ -97,6 +102,7 @@ bool AppController::trayAvailable() const
 void AppController::showMainWindow()
 {
     if (!m_mainWindow) return;
+    if (!m_operationBusy) refreshStates();
     const Qt::WindowStates state = m_mainWindow->windowState();
     if (state & Qt::WindowMinimized) {
         if (state & Qt::WindowMaximized) m_mainWindow->showMaximized();
@@ -492,7 +498,7 @@ auto runInWorker(QObject* parent, Fn fn)
 
 bool AppController::install(const QString& itemId, const QString& promptFile)
 {
-    if (m_operationBusy) return false;
+    if (m_operationBusy || m_updateInProgress) return false;
     QScopedValueRollback<bool> busy(m_operationBusy, true);
     const QString displayName = itemDisplayName(itemId);
     emit installStarted(displayName, /*uninstalling=*/false);
@@ -510,7 +516,7 @@ bool AppController::install(const QString& itemId, const QString& promptFile)
 
 bool AppController::uninstall(const QString& itemId)
 {
-    if (m_operationBusy) return false;
+    if (m_operationBusy || m_updateInProgress) return false;
     QScopedValueRollback<bool> busy(m_operationBusy, true);
     const QString displayName = itemDisplayName(itemId);
     emit installStarted(displayName, /*uninstalling=*/true);
@@ -542,6 +548,7 @@ QVariantList AppController::skills()
 
 bool AppController::removeSkill(const QString& skillDirName)
 {
+    if (m_updateInProgress) return false;
     const int n = Skills::uninstallByName(skillDirName);
     invalidateSnapshot();
     emit itemsChanged();
@@ -588,7 +595,7 @@ void AppController::showToast(const QString& text)
 
 void AppController::quit()
 {
-    if (m_operationBusy) return;
+    if (m_operationBusy || m_updateInProgress) return;
     QCoreApplication::quit();
 }
 
