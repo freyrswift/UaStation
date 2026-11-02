@@ -119,7 +119,7 @@ jobs:
           plutil -lint dist/ua.app/Contents/Info.plist
           test "$(/usr/libexec/PlistBuddy -c 'Print :CFBundleExecutable' dist/ua.app/Contents/Info.plist)" = ua
           test -x dist/ua.app/Contents/MacOS/ua
-          lipo -verify_arch ${{ matrix.name == 'macos-arm64' && 'arm64' || 'x86_64' }} dist/ua.app/Contents/MacOS/ua
+          lipo dist/ua.app/Contents/MacOS/ua -verify_arch ${{ matrix.name == 'macos-arm64' && 'arm64' || 'x86_64' }}
           otool -L dist/ua.app/Contents/MacOS/ua
 
       - name: Verify Linux runtime
