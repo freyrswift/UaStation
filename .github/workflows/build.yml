@@ -175,6 +175,20 @@ jobs:
     permissions:
       contents: write
     steps:
+      - uses: actions/checkout@v4
+
+      - name: Extract release changelog
+        shell: bash
+        run: |
+          version="${GITHUB_REF_NAME#v}"
+          awk -v version="$version" '
+            index($0, "## [" version "]") == 1 { found = 1; next }
+            found && /^## \[/ { exit }
+            found { print }
+            END { if (!found) exit 1 }
+          ' CHANGELOG.md > release-notes.md
+          test -s release-notes.md
+
       - uses: actions/download-artifact@v4
         with:
           path: artifacts
@@ -185,10 +199,5 @@ jobs:
         with:
           files: artifacts/**/*
           fail_on_unmatched_files: true
-          body: |
-            Windows x64: Ua-windows-x64.zip (extract and run ua.exe).
-            macOS Apple Silicon: Ua-macos-arm64.dmg.
-            macOS Intel: Ua-macos-x64.dmg.
-            Linux x64: Ua-linux-x64.tar.gz (extract and run bin/ua).
-            macOS builds are not Developer ID signed or notarized.
-            Linux builds target Ubuntu 24.04 or a compatible newer runtime.
+          name: Ua Toolbox ${{ github.ref_name }}
+          body_path: release-notes.md

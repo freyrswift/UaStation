@@ -74,5 +74,6 @@ foreach(subdir IN ITEMS
     install(DIRECTORY $<TARGET_FILE_DIR:Ua>/${subdir}
         DESTINATION .
         OPTIONAL
+        PATTERN "*.qrc" EXCLUDE
     )
 endforeach()

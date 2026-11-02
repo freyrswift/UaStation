@@ -6,11 +6,13 @@
 - Visual Studio Code 独立编辑器卡片、名称和 Logo，支持工具数由 18 增至 19
 - VS Code Copilot 用户级指令文件，包含 `applyTo: "**"` 元数据和 `VSCODE_COPILOT_HOME` 目录覆盖
 - Windows 可执行文件版本信息，与界面及 macOS Bundle 共用 CMake 项目版本
+- 各平台发布包内附更新日志、说明与许可证，GitHub Release 自动读取对应版本的更新日志
 
 ### Fixed
 - VS Code 检测与 Copilot CLI 配置分离，环境变量覆盖优先
 - VS Code 指令写入时保留已有内容及 UTF-8 BOM，并补齐缺失的 Front Matter
 - Logo 回归场景适配 19 个工具，覆盖深色和浅色主题
+- Windows 发布包排除包含本地构建路径的中间资源文件
 
 ## [2.1.0] - 2026-10-29
 

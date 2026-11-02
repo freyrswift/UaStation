@@ -211,6 +211,15 @@ install(TARGETS Ua
     RUNTIME DESTINATION $<IF:$<PLATFORM_ID:Windows>,.,${CMAKE_INSTALL_BINDIR}>
 )
 
+if(APPLE)
+    set(ua_docs_destination "ua.app/Contents/Resources")
+elseif(WIN32)
+    set(ua_docs_destination ".")
+else()
+    set(ua_docs_destination "${CMAKE_INSTALL_DOCDIR}")
+endif()
+install(FILES CHANGELOG.md README.md LICENSE DESTINATION "${ua_docs_destination}")
+
 # windeployqt / macdeployqt are driven from CI; see cmake/Deploy*.cmake
 if(WIN32)
     include(cmake/DeployWindows.cmake OPTIONAL)
