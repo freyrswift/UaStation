@@ -163,7 +163,6 @@ ua_add_skill_assets(Ua)
 
 target_include_directories(Ua PRIVATE
     ${CMAKE_SOURCE_DIR}/src
-    ${CMAKE_SOURCE_DIR}/src/core
     ${CMAKE_SOURCE_DIR}/src/platform
 )
 

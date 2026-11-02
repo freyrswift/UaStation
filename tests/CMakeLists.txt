@@ -16,7 +16,7 @@ if(WIN32)
     target_link_libraries(ua_regression PRIVATE user32)
 endif()
 set_target_properties(ua_regression PROPERTIES RUNTIME_OUTPUT_DIRECTORY "${PROJECT_BINARY_DIR}")
-target_include_directories(ua_regression PRIVATE ../src ../src/core)
+target_include_directories(ua_regression PRIVATE ../src)
 target_link_libraries(ua_regression PRIVATE
     Qt6::Core Qt6::Gui Qt6::Qml Qt6::Quick Qt6::Widgets Qt6::Concurrent Qt6::Network Qt6::Svg
 )
