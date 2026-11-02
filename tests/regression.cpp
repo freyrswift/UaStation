@@ -33,6 +33,7 @@
 #include "core/injector.h"
 #include "core/install_plan.h"
 #include "core/items.h"
+#include "core/prompts.h"
 #include "core/skills.h"
 #include "core/app_strings.h"
 #include "platform/instance_activation.h"
@@ -74,6 +75,79 @@ static void selectFixture(const QString& root, const char* name) {
                            "CLINE_HOME", "COPILOT_HOME", "VSCODE_COPILOT_HOME", "KIMI_CODE_HOME"}) qunsetenv(key);
     ensureUserDirs();
     put(fixtureRoot + "/prompt.md", "Fixture prompt.\n");
+}
+
+static void promptTests(const QString& root, const std::function<void(bool, const char*)>& check) {
+    selectFixture(root, "prompt-routing");
+    const QString directory = promptsDir();
+    check(QDir::cleanPath(directory).startsWith(QDir::cleanPath(fixtureRoot) + '/'),
+          "prompt fixtures stay inside the temporary user directory");
+    Prompts::extractEmbedded();
+    const QStringList bundled = {"Ua.md", "workbuddy.md", "gemini.md", "kimi.md"};
+    QSet<QString> extracted;
+    for (const auto& entry : Prompts::list()) extracted.insert(entry.name);
+    check(extracted == QSet<QString>(bundled.cbegin(), bundled.cend()),
+          "all four embedded top-level prompts are extracted");
+    for (const auto& name : bundled) {
+        const auto resource = Injector::readFile(":/prompts/" + name);
+        check(!resource.isEmpty() && Injector::readFile(directory + '/' + name) == resource,
+              qPrintable(name + " extracts the exact embedded bytes"));
+    }
+
+    for (const auto& item : allItems()) {
+        if (item.group != ItemGroup::Editor) continue;
+        const QString expected = item.id == "workbuddy" || item.id == "gemini" || item.id == "kimi"
+            ? item.id + ".md" : QStringLiteral("Ua.md");
+        const auto selected = Prompts::listFor(item.id);
+        check(selected.size() == 1 && selected.first().name == expected &&
+              selected.first().fullPath == directory + '/' + expected &&
+              Prompts::pickFor(item.id) == selected.first().fullPath,
+              qPrintable(item.id + " routes to " + expected));
+    }
+    for (const auto& id : {QStringLiteral("GEMINI"), QStringLiteral("KIMI")}) {
+        const auto selected = Prompts::listFor(id);
+        check(selected.size() == 1 && selected.first().name == id.toLower() + ".md",
+              qPrintable(id + " dedicated prompt routing is case-insensitive"));
+    }
+    const auto unknown = Prompts::listFor("unlisted-editor");
+    check(unknown.size() == 1 && unknown.first().name == "Ua.md",
+          "unknown editors retain the original Ua prompt fallback");
+
+    for (const auto& name : {QStringLiteral("gemini.md"), QStringLiteral("kimi.md")}) {
+        const auto text = QString::fromUtf8(Injector::readFile(directory + '/' + name));
+        check(text.contains(QStringLiteral("Ua \u5df2\u7ecf\u51c6\u5907\u597d\u968f\u65f6\u5f85\u547d")),
+              qPrintable(name + " includes the original Chinese Ua activation reply"));
+        check(text.contains(QStringLiteral("Ua is ready and standing by")),
+              qPrintable(name + " includes the original English Ua activation reply"));
+        check(text.contains(QStringLiteral("\u6211\u662f Ua")),
+              qPrintable(name + " retains the Ua identity reply"));
+    }
+
+    for (const auto& name : bundled)
+        put(directory + '/' + name, QByteArray("\xEF\xBB\xBFuser-edited ") + name.toUtf8() + "\r\n");
+    put(directory + "/custom.md", "Unrelated user prompt.\n");
+    Prompts::extractEmbedded();
+    for (const auto& name : bundled)
+        check(Injector::readFile(directory + '/' + name) ==
+              QByteArray("\xEF\xBB\xBFuser-edited ") + name.toUtf8() + "\r\n",
+              qPrintable(name + " preserves existing user edits and UTF-8 BOM"));
+    check(Injector::readFile(directory + "/custom.md") == "Unrelated user prompt.\n",
+          "prompt extraction leaves unrelated user prompts unchanged");
+
+    for (const auto& name : {QStringLiteral("gemini.md"), QStringLiteral("kimi.md")}) {
+        check(QFile::remove(directory + '/' + name), qPrintable(name + " missing-file fixture removed"));
+    }
+    Prompts::extractEmbedded();
+    for (const auto& name : {QStringLiteral("gemini.md"), QStringLiteral("kimi.md")}) {
+        const auto resource = Injector::readFile(":/prompts/" + name);
+        check(!resource.isEmpty() && Injector::readFile(directory + '/' + name) == resource &&
+              Prompts::pickFor(QFileInfo(name).completeBaseName()) == directory + '/' + name,
+              qPrintable(name + " missing dedicated prompt is re-extracted and selected"));
+    }
+    for (const auto& name : {QStringLiteral("Ua.md"), QStringLiteral("workbuddy.md")})
+        check(Injector::readFile(directory + '/' + name) ==
+              QByteArray("\xEF\xBB\xBFuser-edited ") + name.toUtf8() + "\r\n",
+              qPrintable(name + " stays unchanged when dedicated prompts are restored"));
 }
 
 class CloseFixture : public QObject {
@@ -547,6 +621,12 @@ int main(int argc, char** argv) {
         out << (ok ? "PASS " : "FAIL ") << name << '\n';
         out.flush();
     };
+
+    if (app.arguments().contains("--prompts-only")) {
+        promptTests(temp.path(), check);
+        out << checks << " checks, " << failures << " failures\n";
+        return failures == 0 ? 0 : 1;
+    }
 
     if (app.arguments().contains("--detection-refresh-only")) {
         detectionRefreshTests(temp.path(), check);

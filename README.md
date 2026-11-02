@@ -66,7 +66,7 @@
 | 🧯 事务保护 | 原子写盘 + sidecar 备份 + 失败自动回滚 + `node --check` 校验 |
 | 🚨 宿主升级检测 | SHA256 patchStamp，宿主升级覆盖补丁后自动提示重装 |
 | 🔍 搜索过滤 | 顶部搜索框实时过滤工具卡片 |
-| 📝 内嵌提示词 | 启动即释放 `Ua.md` 和 86 片叶子到 `%APPDATA%/Ua/prompts/`，可编辑 |
+| 📝 内嵌提示词 | 启动即释放 `Ua.md`、WorkBuddy/Gemini/Kimi 专属提示词和 86 片叶子到 `%APPDATA%/Ua/prompts/`，保留用户编辑 |
 | 🌐 中英双语 | 实时切换，不需重启 |
 | 🎨 Mica 窗口 | Win11 风格无边框 + 系统托盘 |
 

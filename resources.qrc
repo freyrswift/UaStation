@@ -11,6 +11,8 @@
     <!-- Shared prompt (lives in the user's writable prompts/ at runtime via Prompts::extractEmbedded) -->
     <file alias="prompts/Ua.md">prompts/Ua.md</file>
     <file alias="prompts/workbuddy.md">prompts/workbuddy.md</file>
+    <file alias="prompts/gemini.md">prompts/gemini.md</file>
+    <file alias="prompts/kimi.md">prompts/kimi.md</file>
 
     <!-- Leaf-skill routing pack: router + normalizer + index + 80 leaves.
          Prompts::extractEmbedded unpacks these to <promptsDir>/leaves/ on first run. -->

@@ -23,10 +23,10 @@ public:
     static QVector<PromptEntry> list();
 
     // List the single prompt file appropriate for a given tool id.
-    // WorkBuddy gets workbuddy.md, everything else gets Ua.md.
+    // Prefer <itemId>.md (WorkBuddy, Gemini, Kimi), otherwise use Ua.md.
     static QVector<PromptEntry> listFor(const QString& itemId);
 
-    // Resolve the preferred prompt for a given tool id: <id>.md > default.md > first.
+    // Resolve the preferred prompt for a given tool id: <id>.md > Ua.md > first.
     static QString pickFor(const QString& itemId);
 };
 

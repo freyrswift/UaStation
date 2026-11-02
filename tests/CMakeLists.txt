@@ -33,6 +33,7 @@ add_test(NAME ua_installation COMMAND ua_regression --installation-only)
 add_test(NAME ua_progress COMMAND ua_regression --progress-only)
 add_test(NAME ua_features COMMAND ua_regression --features-only)
 add_test(NAME ua_reliability COMMAND ua_regression --reliability-only)
+add_test(NAME ua_prompts COMMAND ua_regression --prompts-only)
 add_executable(ua_runtime runtime.cpp ../src/core/updater.h
     ../src/core/settings.cpp ../src/core/settings.h ../src/core/strings.cpp ../src/core/app_strings.h)
 set_property(SOURCE runtime.cpp APPEND PROPERTY OBJECT_DEPENDS
@@ -62,7 +63,7 @@ if(MSVC)
     target_compile_options(ua_update_installer PRIVATE /utf-8 /Zc:__cplusplus)
 endif()
 add_test(NAME ua_update_installer COMMAND ua_update_installer)
-set(ua_test_names ua_regression ua_installation ua_progress ua_features ua_reliability ua_runtime ua_detection ua_update_installer)
+set(ua_test_names ua_regression ua_installation ua_progress ua_features ua_reliability ua_prompts ua_runtime ua_detection ua_update_installer)
 set_tests_properties(${ua_test_names} PROPERTIES ENVIRONMENT "QT_QPA_PLATFORM=offscreen;QT_QUICK_BACKEND=software;QT_QUICK_CONTROLS_STYLE=Basic")
 set_property(TEST ${ua_test_names} APPEND PROPERTY ENVIRONMENT
     "QT_PLUGIN_PATH=${QT6_INSTALL_PREFIX}/${QT6_INSTALL_PLUGINS}"

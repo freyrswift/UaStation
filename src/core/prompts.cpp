@@ -17,6 +17,8 @@ struct EmbeddedPrompt { const char* resource; const char* filename; };
 constexpr EmbeddedPrompt kEmbedded[] = {
     { ":/prompts/Ua.md",        "Ua.md" },
     { ":/prompts/workbuddy.md", "workbuddy.md" },
+    { ":/prompts/gemini.md",    "gemini.md" },
+    { ":/prompts/kimi.md",      "kimi.md" },
 };
 
 // Copy a single qrc file to disk, preserving user edits.
@@ -37,7 +39,7 @@ void Prompts::extractEmbedded()
     const QString dir = promptsDir();
     QDir().mkpath(dir);
 
-    // Top-level prompt files (Ua.md, workbuddy.md).
+    // Top-level shared and tool-specific prompt files.
     for (const auto& ep : kEmbedded) {
         const QString dst = QDir::cleanPath(dir + QLatin1Char('/') + QLatin1String(ep.filename));
         copyIfMissing(QString::fromLatin1(ep.resource), dst);
@@ -78,7 +80,7 @@ QVector<PromptEntry> Prompts::listFor(const QString& itemId)
     const QString specific = itemId + QStringLiteral(".md");
     const QString uaMd     = QStringLiteral("Ua.md");
 
-    // WorkBuddy uses workbuddy.md; everything else uses Ua.md.
+    // Prefer a tool-specific prompt without changing the shared fallback.
     for (const auto& e : all) {
         if (e.name.compare(specific, Qt::CaseInsensitive) == 0)
             return { e };
