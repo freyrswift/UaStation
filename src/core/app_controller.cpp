@@ -12,15 +12,20 @@
 
 #include <QAction>
 #include <QCoreApplication>
+#include <QClipboard>
 #include <QDesktopServices>
 #include <QDir>
 #include <QEventLoop>
 #include <QFile>
+#include <QFileDialog>
 #include <QFileInfo>
 #include <QFuture>
 #include <QFutureWatcher>
 #include <QGuiApplication>
 #include <QIcon>
+#include <QJsonArray>
+#include <QJsonDocument>
+#include <QJsonObject>
 #include <QMenu>
 #include <QScopedValueRollback>
 #include <QSystemTrayIcon>
@@ -187,6 +192,19 @@ QVariantList AppController::buildItemsSnapshot() const
         m[QStringLiteral("hidden")]          = it.hidden;
         m[QStringLiteral("supported")]       = !it.targetRel.isEmpty() || it.id == QLatin1String("doubao");
         m[QStringLiteral("detected")]        = toolDetectedById(it.id);
+        if (it.id == QLatin1String("vscode")) {
+            m[QStringLiteral("editorInstallDir")] = m.value(QStringLiteral("detected")).toBool()
+                ? vscodeInstallDir() : QString();
+            m[QStringLiteral("instructionPath")] = toolPath(it.id, it.targetRel);
+            const QString root = planFor(it).skillsDir;
+            int count = 0;
+            for (const auto& name : Skills::installedNames(it.id)) {
+                if (QFileInfo(root + '/' + name + QStringLiteral("/SKILL.md")).isFile()) ++count;
+            }
+            m[QStringLiteral("sharedSkillsRoot")] = root;
+            m[QStringLiteral("sharedSkillsCount")] = count;
+            m[QStringLiteral("sharedSkillsTotal")] = allSkills().size();
+        }
         const auto st = Injector::scan(it.id);
         m[QStringLiteral("state")]           = static_cast<int>(st);
         m[QStringLiteral("upgraded")]        = (st == InstallState::Installed || st == InstallState::NeedsRepair) && Injector::hostUpgraded(it.id);
@@ -311,6 +329,8 @@ QVariantList AppController::envCheck()
         m[QStringLiteral("name")]           = name;
         m[QStringLiteral("detected")]       = detected;
         m[QStringLiteral("installDir")]     = installDir;
+        if (it.id == QLatin1String("vscode"))
+            m[QStringLiteral("editorInstallDir")] = detected ? vscodeInstallDir() : QString();
         m[QStringLiteral("targetPath")]     = target;
         m[QStringLiteral("targetExists")]   = targetExists;
         m[QStringLiteral("targetWritable")] = targetWritable;
@@ -327,6 +347,47 @@ void AppController::refreshStates()
 {
     invalidateSnapshot();
     emit itemsChanged();
+}
+
+bool AppController::setVscodeLocation(const QString& path)
+{
+    if (m_operationBusy || m_updateInProgress) return false;
+    if (!setVscodeInstallPath(path)) {
+        emit errorRaised(Strings::instance()->lang() == Strings::CN
+            ? QStringLiteral("请选择 Visual Studio Code 的 Code.exe、Insiders 程序或安装目录")
+            : QStringLiteral("Select the Visual Studio Code executable or installation folder"));
+        return false;
+    }
+    refreshStates();
+    emit toast(Strings::instance()->lang() == Strings::CN
+        ? (path.trimmed().isEmpty() ? QStringLiteral("已恢复 Visual Studio Code 自动检测")
+                                   : QStringLiteral("Visual Studio Code 程序路径已更新"))
+        : (path.trimmed().isEmpty() ? QStringLiteral("Visual Studio Code automatic detection restored")
+                                   : QStringLiteral("Visual Studio Code location updated")));
+    return true;
+}
+
+void AppController::chooseVscodeLocation()
+{
+    if (m_operationBusy || m_updateInProgress) return;
+    const bool cn = Strings::instance()->lang() == Strings::CN;
+    const QString title = cn ? QStringLiteral("选择 Visual Studio Code 程序")
+                             : QStringLiteral("Select Visual Studio Code");
+    QString selected;
+    {
+        QScopedValueRollback<bool> busy(m_operationBusy, true);
+#if defined(Q_OS_MACOS)
+        selected = QFileDialog::getExistingDirectory(nullptr, title, vscodeInstallDir());
+#else
+        selected = QFileDialog::getOpenFileName(nullptr, title, vscodeInstallDir(),
+#if defined(Q_OS_WIN)
+            QStringLiteral("Visual Studio Code (Code*.exe);;Executables (*.exe)"));
+#else
+            QStringLiteral("Visual Studio Code (code code-insiders);;All files (*)"));
+#endif
+#endif
+    }
+    if (!selected.isEmpty()) setVscodeLocation(selected);
 }
 
 void AppController::refreshPrompts()
@@ -362,6 +423,24 @@ void AppController::revealTargetDir(const QString& itemId)
 
 QString AppController::tipFor(const Item& item) const
 {
+    if (item.id == QLatin1String("vscode")) {
+        return QStringLiteral(
+            "Visual Studio Code 技能\n\n"
+            "共享技能目录：%1\n"
+            "安装包含 SKILL.md 和随附脚本、参考资料，不是把全部正文塞进一个指令文件。\n"
+            "重载窗口并新建会话，在 Chat: Open Customizations 的 Skills 中确认目录；"
+            "支持原生技能的客户端可输入 /技能名，或按任务匹配按需加载。\n\n"
+            "其他支持 MCP 的插件：在本软件 Visual Studio Code 弹窗复制对应 MCP 配置，"
+            "合并到该插件的配置并启动 ua-skills 服务。Visual Studio Code 使用 servers，"
+            "通用客户端常用 mcpServers，Codex 使用 TOML。已有配置需合并，不要整份覆盖。\n"
+            "连接后先调用 list_skills，再用 read_skill 读取选中的技能；"
+            "read_asset 读取它的配套文件，服务本身只读，不执行脚本。\n\n"
+            "更换同一客户端的本地/云端模型通常无需重装；更换插件、远程 SSH/WSL/容器环境"
+            "需要在对应运行环境部署技能或配置 MCP。仅支持普通聊天、没有文件或 MCP 工具的客户端"
+            "不会因为目录存在就自动加载。界面数量表示本地部署数，不代表模型已经使用。\n"
+            "共享库由 Visual Studio Code 卡片管理，卸载该卡片也会移除它管理的共享技能，"
+            "其他消费者随之失去这些技能；用户原文件按备份恢复。\n").arg(planFor(item).skillsDir);
+    }
     // Hand-written minimal guides: for these two the only things a user needs
     // are "did it install" and (for Claude) "which model to pick".
     const QString verifySteps =
@@ -586,6 +665,47 @@ void AppController::openSkillsFolder(const QString& itemId)
     emit errorRaised(Strings::instance()->lang() == Strings::CN
         ? QStringLiteral("还没有安装任何技能")
         : QStringLiteral("No skills installed yet"));
+}
+
+QString AppController::skillsMcpConfig(const QString& format) const
+{
+    QString executable = QCoreApplication::applicationDirPath() + QStringLiteral("/ua-skills-mcp");
+#if defined(Q_OS_WIN)
+    executable += QStringLiteral(".exe");
+#endif
+    if (!QFileInfo(executable).isFile()) return {};
+    const auto* item = itemById(QStringLiteral("vscode"));
+    if (!item) return {};
+    const QString root = planFor(*item).skillsDir;
+    if (format == QLatin1String("codex")) {
+        // JSON strings are also valid TOML basic strings for these path values.
+        auto quoted = [](const QString& value) {
+            const auto json = QJsonDocument(QJsonArray{value}).toJson(QJsonDocument::Compact);
+            return QString::fromUtf8(json.mid(1, json.size() - 2));
+        };
+        return QStringLiteral("[mcp_servers.ua-skills]\ncommand = %1\nargs = [\"--root\", %2]\n")
+            .arg(quoted(executable), quoted(root));
+    }
+    if (format != QLatin1String("vscode") && format != QLatin1String("generic")) return {};
+    QJsonObject server{{QStringLiteral("command"), executable},
+                       {QStringLiteral("args"), QJsonArray{QStringLiteral("--root"), root}}};
+    if (format == QLatin1String("vscode")) server.insert(QStringLiteral("type"), QStringLiteral("stdio"));
+    const QString key = format == QLatin1String("vscode") ? QStringLiteral("servers") : QStringLiteral("mcpServers");
+    return QString::fromUtf8(QJsonDocument(QJsonObject{{key, QJsonObject{{QStringLiteral("ua-skills"), server}}}}).toJson());
+}
+
+bool AppController::copySkillsMcpConfig(const QString& format)
+{
+    const QString config = skillsMcpConfig(format);
+    const bool cn = Strings::instance()->lang() == Strings::CN;
+    if (config.isEmpty()) {
+        emit errorRaised(cn ? QStringLiteral("技能服务程序缺失，请使用完整发布包")
+                            : QStringLiteral("Skills service missing; use the complete package"));
+        return false;
+    }
+    QGuiApplication::clipboard()->setText(config);
+    emit toast(cn ? QStringLiteral("MCP 配置已复制") : QStringLiteral("MCP configuration copied"));
+    return true;
 }
 
 void AppController::showToast(const QString& text)

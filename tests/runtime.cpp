@@ -431,6 +431,13 @@ int main(int argc, char** argv) {
     updateWindow.show();
     for (int language : {int(Strings::CN), int(Strings::EN)}) {
         Strings::instance()->setLang(language);
+        const QString noticeText = Strings::instance()->t(Strings::DisclaimerBody);
+        check(language == int(Strings::CN)
+            ? noticeText.contains(QStringLiteral("禁止倒卖")) && noticeText.contains(QStringLiteral("依法追究责任")) &&
+              noticeText.contains(QStringLiteral("旧版 MIT 授权及第三方组件许可不变"))
+            : noticeText.contains(QStringLiteral("non-commercial")) && noticeText.contains(QStringLiteral("preserve evidence")) &&
+              noticeText.contains(QStringLiteral("Earlier MIT grants and third-party licenses remain unchanged")),
+            "usage notice includes non-commercial enforcement and prior-license boundaries in both languages");
         for (const auto& size : {QSize(460, 524), QSize(320, 420)}) {
             QScopedPointer<QObject> updateObject(updateComponent.create());
             auto* updateItem = qobject_cast<QQuickItem*>(updateObject.data());

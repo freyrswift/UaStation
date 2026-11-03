@@ -467,6 +467,14 @@ InstallPlan planFor(const Item& item)
         return plan;
     }
 
+    if (item.id == QLatin1String("vscode")) {
+        plan.targets.push_back({toolPath(item.id, item.targetRel), TargetKind::Marked});
+        // A single publisher owns this native shared library. Other clients
+        // consume it directly or through MCP; their existing profiles stay separate.
+        plan.skillsDir = QDir::cleanPath(homeDir() + QStringLiteral("/.agents/skills"));
+        return plan;
+    }
+
     // Generic branch: env-var override wins over the default ~/.<tool>/ path.
     // When set, we rebase both targetRel and skillsDirRel onto the env root.
     if (!item.targetRel.isEmpty()) {

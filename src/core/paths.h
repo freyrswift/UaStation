@@ -57,4 +57,10 @@ QString toolPath(const QString& itemId, const QString& relative);
 // the relative-path heuristic in toolDetected().
 bool toolDetectedById(const QString& itemId);
 
+// The editor installation root is separate from the Copilot instruction root.
+// On Windows this resolves custom installers through PATH and registry sources.
+QString vscodeInstallDir();
+// An empty path clears the manual selection; invalid paths preserve it.
+bool setVscodeInstallPath(const QString& path);
+
 } // namespace ua::core

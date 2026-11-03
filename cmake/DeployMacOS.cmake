@@ -11,6 +11,7 @@ find_program(MACDEPLOYQT_EXECUTABLE
 add_custom_command(TARGET Ua POST_BUILD
     COMMAND "${MACDEPLOYQT_EXECUTABLE}"
             "$<TARGET_BUNDLE_DIR:Ua>"
+            "-executable=$<TARGET_BUNDLE_DIR:Ua>/Contents/MacOS/ua-skills-mcp"
             -qmldir=${CMAKE_SOURCE_DIR}/qml
             -always-overwrite
     COMMENT "Bundling Qt frameworks into Ua.app"

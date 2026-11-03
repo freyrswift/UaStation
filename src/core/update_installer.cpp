@@ -153,6 +153,13 @@ try {
     $oldVersion = [Diagnostics.FileVersionInfo]::GetVersionInfo($m.Executable)
     if ($newVersion.OriginalFilename -and $oldVersion.OriginalFilename -and
         $newVersion.OriginalFilename -ne $oldVersion.OriginalFilename) { throw 'Update executable identity does not match.' }
+    $skillsServer = Join-Path $m.AppDirectory 'ua-skills-mcp.exe'
+    if (Test-Path -LiteralPath $skillsServer -PathType Leaf) {
+        try {
+            $skillsProbe = [IO.File]::Open($skillsServer, [IO.FileMode]::Open, [IO.FileAccess]::ReadWrite, [IO.FileShare]::Read)
+            $skillsProbe.Dispose()
+        } catch { throw 'Close clients using the Ua skills MCP service, then retry the update.' }
+    }
     $files = @(Get-ChildItem -LiteralPath $staging -Recurse -Force -File)
     foreach ($file in $files) {
         $relative = $file.FullName.Substring($staging.Length + 1)

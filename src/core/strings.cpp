@@ -31,13 +31,15 @@ constexpr std::array<std::array<const char*, 2>, Strings::_Count> kTable {{
       "2. 数据与个人信息保护\n处理个人信息应有合法依据，遵循目的明确、最小必要原则，依法履行告知、同意等义务并采取保护措施。请勿擅自输入、上传、泄露国家秘密、商业秘密、他人隐私或其他受保护数据；涉及重要数据、数据出境等事项时，应另行遵守相应规定。\n\n"
       "3. 知识产权与第三方服务\n尊重软件、代码、模型、文档等内容的知识产权，遵守相应许可、合同和适用的平台规则。提示词或配置调整不免除这些义务。\n\n"
       "4. 配置变更与 AI 输出\n安装、卸载等操作可能修改本地配置，请先核对目标路径并备份重要文件。AI 输出可能存在错误或遗漏，请在执行命令、发布内容或作出决定前人工复核，不将其视为专业意见或结果保证。\n\n"
-      "5. 责任与公告效力\n使用者和提供者各自依法承担相应责任。本公告不排除或限制依法不得排除或限制的责任，不构成对违法用途的许可，也不代替具体业务所需的许可、评估或其他法定义务。",
+      "5. 非商业使用与分发\n本版新增 Ua 自有内容仅供个人非商业学习、研究、参考和使用，禁止倒卖、出售、收费代装、付费打包及商业使用。免费分享须保留来源和许可证；旧版 MIT 授权及第三方组件许可不变，具体范围见随包 LICENSE 与 docs/usage-policy.md。\n\n"
+      "6. 责任与公告效力\n严禁利用本工具从事本许可证未授权的商业牟利，或恶意破坏、干扰他人程序、系统及数据。一经发现，相关权利人将保留证据并在各自权利范围内依法追究责任，具体责任依法认定。使用者和提供者各自依法承担相应责任；本公告不排除或限制依法不得排除或限制的责任，也不代替其他法定义务。",
       "Before using Ua Toolbox, read this notice and comply with applicable laws, including the PRC Cybersecurity Law, Data Security Law, Personal Information Protection Law, and Civil Code.\n\n"
       "1. Lawful use and permission\nOperate on systems, software, files, and data only with lawful rights, valid permission, or another legal basis. Do not unlawfully access, disrupt, or damage systems, steal data, or infringe others' rights. Installing this tool does not authorize operations on third-party systems.\n\n"
       "2. Data and personal information\nUse a lawful basis, a clear purpose, and data minimization. Meet applicable notice, consent, and protection duties. Do not improperly enter, upload, or disclose state secrets, trade secrets, private information, or other protected data. Additional rules may apply to important data or cross-border transfers.\n\n"
       "3. Intellectual property and third-party services\nRespect intellectual property and applicable licenses, contracts, and platform rules. Prompts or configuration changes do not remove these duties.\n\n"
       "4. Configuration changes and AI output\nInstallation and removal may change local configuration. Verify paths and back up important files first. AI output may contain errors or omissions. Review commands, content, and decisions before acting; output is not professional advice or a guarantee.\n\n"
-      "5. Responsibility and effect\nUsers and providers each bear their respective legal responsibilities. This notice does not exclude or limit liability that cannot lawfully be excluded or limited, permit unlawful use, or replace required permissions, assessments, or other legal duties." },
+      "5. Non-commercial use and distribution\nNewly licensed Ua-owned material is for personal, non-commercial learning, research, reference and use. Sale, resale, paid installation, paid bundles and commercial use are outside the grant. Free sharing must retain attribution and licenses. Earlier MIT grants and third-party licenses remain unchanged; see the bundled LICENSE and docs/usage-policy.md.\n\n"
+      "6. Responsibility and effect\nProhibited commercial exploitation and malicious damage to or interference with other people's programs, systems or data are forbidden. Relevant rights holders will preserve evidence and pursue responsibility within their rights under applicable law; liability is determined by law. Users and providers each bear their respective legal responsibilities. This notice does not exclude liability that cannot lawfully be excluded or replace other legal duties." },
     { "继续使用",            "Continue" },
     { "暂不支持自动安装",    "Auto-install not supported" },
     { "未检测到该工具",      "Tool not detected" },
@@ -71,8 +73,8 @@ constexpr std::array<std::array<const char*, 2>, Strings::_Count> kTable {{
     { "加入QQ群",             "Join QQ Group" },
     { "交流与反馈",           "Chat and feedback" },
     { "Ua 工具箱  版本 ",      "Ua Toolbox  Version " },
-    { "本工具免费开源。请遵守启动时的《使用公告》及适用法律法规，使用者与提供者各自依法承担相应责任。",
-      "This tool is free and open source. Follow the startup Usage Notice and applicable laws. Users and providers each bear their respective legal responsibilities." },
+    { "免费提供，新增自有内容仅供个人非商业学习和使用。旧版与第三方许可不变，完整范围见 LICENSE。请遵守《使用公告》。",
+      "Free download for personal non-commercial study and use of newly licensed Ua material. Earlier and third-party licenses remain unchanged. See LICENSE and Usage Notice." },
     { UA_VERSION_STR,         UA_VERSION_STR },
     { "请先选择一个提示词",   "Please select a prompt first" },
     { "读取提示词文件失败",   "Failed to read prompt file" },

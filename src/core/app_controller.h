@@ -46,6 +46,8 @@ public:
 public slots:
     // Item actions
     void refreshStates();
+    bool setVscodeLocation(const QString& path);
+    void chooseVscodeLocation();
     void refreshPrompts();
     void openUrl(const QString& url);
     void revealTargetDir(const QString& itemId);
@@ -66,6 +68,8 @@ public slots:
     QVariantList skills();
     bool removeSkill(const QString& skillDirName);
     void openSkillsFolder(const QString& itemId = QString());
+    QString skillsMcpConfig(const QString& format) const;
+    bool copySkillsMcpConfig(const QString& format);
 
     // Lifecycle
     void showToast(const QString& text);

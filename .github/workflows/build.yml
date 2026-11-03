@@ -119,24 +119,31 @@ jobs:
           plutil -lint dist/ua.app/Contents/Info.plist
           test "$(/usr/libexec/PlistBuddy -c 'Print :CFBundleExecutable' dist/ua.app/Contents/Info.plist)" = ua
           test -x dist/ua.app/Contents/MacOS/ua
+          test -x dist/ua.app/Contents/MacOS/ua-skills-mcp
           lipo dist/ua.app/Contents/MacOS/ua -verify_arch ${{ matrix.name == 'macos-arm64' && 'arm64' || 'x86_64' }}
           otool -L dist/ua.app/Contents/MacOS/ua
+          dist/ua.app/Contents/MacOS/ua-skills-mcp --version
 
       - name: Verify Linux runtime
         if: runner.os == 'Linux'
         shell: bash
         run: |
           test -x dist/bin/ua
+          test -x dist/bin/ua-skills-mcp
           test -f dist/bin/qt.conf
           test -d dist/qml
           test -d dist/plugins/platforms
           env -u LD_LIBRARY_PATH ldd dist/bin/ua | tee build/linux-dependencies.log
           if grep -q 'not found' build/linux-dependencies.log; then exit 1; fi
+          env -u LD_LIBRARY_PATH dist/bin/ua-skills-mcp --version
 
       - name: Package Windows
         if: runner.os == 'Windows'
         shell: pwsh
         run: |
+          if (!(Test-Path dist\ua-skills-mcp.exe)) { throw 'Skills MCP executable missing from package' }
+          & .\dist\ua-skills-mcp.exe --version
+          if ($LASTEXITCODE -ne 0) { throw 'Packaged skills MCP runtime failed' }
           New-Item -ItemType Directory -Path packages -Force | Out-Null
           Compress-Archive -Path dist\* -DestinationPath packages\Ua-windows-x64.zip -CompressionLevel Optimal
 
@@ -181,6 +188,8 @@ jobs:
         shell: bash
         run: |
           version="${GITHUB_REF_NAME#v}"
+          project_version="$(awk '/^[[:space:]]*VERSION [0-9]+\.[0-9]+\.[0-9]+/ { print $2; exit }' CMakeLists.txt)"
+          test "$version" = "$project_version"
           awk -v version="$version" '
             index($0, "## [" version "]") == 1 { found = 1; next }
             found && /^## \[/ { exit }
@@ -194,6 +203,26 @@ jobs:
           path: artifacts
           merge-multiple: true
 
+      - name: Retain corresponding Qt source
+        shell: bash
+        working-directory: artifacts
+        run: |
+          source=qt-everywhere-src-6.8.3.tar.xz
+          curl --fail --location --retry 3 --output "$source" \
+            "https://download.qt.io/archive/qt/6.8/6.8.3/single/$source"
+          printf '%s  %s\n' \
+            cdd3a69967208276bb01af7ace7dba0ba53e679f886a4cbe624225c60fb73f2c \
+            "$source" | sha256sum --check -
+
+      - name: Generate release checksums
+        shell: bash
+        working-directory: artifacts
+        run: |
+          files=(Ua-windows-x64.zip Ua-macos-arm64.dmg Ua-macos-x64.dmg Ua-linux-x64.tar.gz qt-everywhere-src-6.8.3.tar.xz)
+          for file in "${files[@]}"; do test -s "$file"; done
+          sha256sum "${files[@]}" > SHA256SUMS
+          sha256sum --check SHA256SUMS
+
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v2
         with:
@@ -201,3 +230,6 @@ jobs:
           fail_on_unmatched_files: true
           name: Ua Toolbox ${{ github.ref_name }}
           body_path: release-notes.md
+          draft: false
+          prerelease: false
+          make_latest: true

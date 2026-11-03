@@ -11,7 +11,7 @@ if(CMAKE_HOST_APPLE AND NOT DEFINED CMAKE_OSX_DEPLOYMENT_TARGET)
 endif()
 
 project(Ua
-    VERSION 2.2.1
+    VERSION 2.2.3
     DESCRIPTION "Ua Toolbox - cross-platform AI tool prompt installer"
     LANGUAGES CXX
 )
@@ -80,6 +80,8 @@ target_sources(Ua PRIVATE
     src/core/prompts.cpp
     src/core/skills.h
     src/core/skills.cpp
+    src/core/skill_catalog.h
+    src/core/skill_catalog.cpp
     src/core/settings.h
     src/core/settings.cpp
     src/core/updater.h
@@ -89,6 +91,7 @@ target_sources(Ua PRIVATE
     src/core/app_controller.h
     src/core/app_controller.cpp
     src/platform/instance_activation.cpp
+    src/platform/vscode_discovery.cpp
 )
 
 # Platform-specific sources
@@ -97,7 +100,7 @@ if(WIN32)
         src/platform/window_effects_win.cpp
         src/platform/singleton_win.cpp
     )
-    target_link_libraries(Ua PRIVATE dwmapi user32 shell32 advapi32)
+    target_link_libraries(Ua PRIVATE dwmapi user32 shell32 advapi32 ole32 uuid)
     set(APP_ICON_WIN ${CMAKE_SOURCE_DIR}/resources/Ua.ico)
     if(EXISTS ${APP_ICON_WIN})
         configure_file(${CMAKE_SOURCE_DIR}/cmake/app.rc.in app.rc @ONLY)
@@ -199,6 +202,43 @@ endif()
 # ---------------------------------------------------------------------------
 include(GNUInstallDirs)
 
+add_executable(ua_skills_mcp
+    src/mcp/main.cpp
+    src/mcp/skills_mcp_server.h
+    src/mcp/skills_mcp_server.cpp
+    src/core/skill_catalog.h
+    src/core/skill_catalog.cpp
+)
+set_target_properties(ua_skills_mcp PROPERTIES
+    OUTPUT_NAME "ua-skills-mcp"
+    RUNTIME_OUTPUT_DIRECTORY "${PROJECT_BINARY_DIR}"
+)
+target_include_directories(ua_skills_mcp PRIVATE "${CMAKE_SOURCE_DIR}/src")
+target_link_libraries(ua_skills_mcp PRIVATE Qt6::Core)
+target_compile_definitions(ua_skills_mcp PRIVATE UA_VERSION_STR="${PROJECT_VERSION}")
+if(MSVC)
+    target_compile_options(ua_skills_mcp PRIVATE /W3 /permissive- /utf-8 /Zc:__cplusplus)
+    set_property(TARGET ua_skills_mcp PROPERTY MSVC_RUNTIME_LIBRARY
+        "$<IF:$<CONFIG:Debug>,MultiThreadedDebug,MultiThreaded>")
+endif()
+add_dependencies(Ua ua_skills_mcp)
+if(APPLE)
+    set_property(TARGET Ua APPEND PROPERTY LINK_DEPENDS "$<TARGET_FILE:ua_skills_mcp>")
+    add_custom_command(TARGET Ua POST_BUILD
+        COMMAND ${CMAKE_COMMAND} -E copy_if_different "$<TARGET_FILE:ua_skills_mcp>"
+                "$<TARGET_BUNDLE_DIR:Ua>/Contents/MacOS/ua-skills-mcp"
+        VERBATIM
+    )
+else()
+    if(UNIX)
+        set_target_properties(ua_skills_mcp PROPERTIES
+            INSTALL_RPATH "$ORIGIN/../${CMAKE_INSTALL_LIBDIR}"
+            INSTALL_RPATH_USE_LINK_PATH FALSE)
+    endif()
+    install(TARGETS ua_skills_mcp
+        RUNTIME DESTINATION $<IF:$<PLATFORM_ID:Windows>,.,${CMAKE_INSTALL_BINDIR}>)
+endif()
+
 if(UNIX AND NOT APPLE)
     set_target_properties(Ua PROPERTIES
         INSTALL_RPATH "$ORIGIN/../${CMAKE_INSTALL_LIBDIR}"
@@ -221,7 +261,11 @@ elseif(WIN32)
 else()
     set(ua_docs_destination "${CMAKE_INSTALL_DOCDIR}")
 endif()
-install(FILES CHANGELOG.md README.md LICENSE DESTINATION "${ua_docs_destination}")
+install(FILES CHANGELOG.md README.md LICENSE CONTRIBUTING.md DESTINATION "${ua_docs_destination}")
+install(FILES docs/building.md docs/shared-skills.md docs/env-vars.md docs/usage-policy.md docs/THIRD_PARTY_NOTICES.md
+    DESTINATION "${ua_docs_destination}/docs")
+install(FILES docs/screenshots/main-editor.png DESTINATION "${ua_docs_destination}/docs/screenshots")
+install(DIRECTORY licenses DESTINATION "${ua_docs_destination}")
 
 # windeployqt / macdeployqt are driven from CI; see cmake/Deploy*.cmake
 if(WIN32)

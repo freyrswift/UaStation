@@ -1149,6 +1149,8 @@ InstallState Injector::scan(const QString& itemId)
                 text.mid(line.start, line.length) != state.tomlInstalledLine))
                 return InstallState::NeedsRepair;
         }
+        if (itemId == QLatin1String("vscode") && state.skills.isEmpty())
+            return InstallState::NeedsRepair;
         if (!Skills::intact(itemId, state.skills)) return InstallState::NeedsRepair;
         return InstallState::Installed;
     }

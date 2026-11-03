@@ -203,6 +203,38 @@ void replacementTests(const QString& workspace)
     }
 }
 
+void skillsServiceLockTests(const QString& workspace)
+{
+    const QString app = workspace + QStringLiteral("/skills-lock-app");
+    const QString payload = workspace + QStringLiteral("/skills-lock-payload");
+    const QString archive = workspace + QStringLiteral("/skills-lock.zip");
+    const QString server = app + QStringLiteral("/ua-skills-mcp.exe");
+    check(prepareExecutable(app) && prepareExecutable(payload) &&
+          writeFile(server, "locked service fixture") &&
+          writeFile(payload + QStringLiteral("/ua-skills-mcp.exe"), "new service fixture") &&
+          writeFile(payload + QStringLiteral("/platforms/qwindows.dll"), "platform fixture"),
+          "skills service lock fixtures prepared");
+    QProcess old;
+    check(startFixture(&old, app), "skills service original fixture started");
+    if (old.state() == QProcess::NotRunning) return;
+    check(zip(workspace, payload, archive), "skills service update package created");
+    const HANDLE lock = CreateFileW(reinterpret_cast<LPCWSTR>(server.utf16()), GENERIC_READ,
+        FILE_SHARE_READ, nullptr, OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL, nullptr);
+    check(lock != INVALID_HANDLE_VALUE, "skills service executable is held with a native read lock");
+    if (lock != INVALID_HANDLE_VALUE) {
+        const auto result = ua::core::update::launchInstaller(archive, app, app + QStringLiteral("/ua.exe"),
+                                                             old.processId(), sha256(archive));
+        check(!result.ok && result.error.contains(QStringLiteral("MCP service")),
+              "occupied skills service is rejected during preparation with actionable error");
+        check(old.state() == QProcess::Running && readFile(server) == "locked service fixture" &&
+              readFile(app + QStringLiteral("/version.txt")) == "old",
+              "skills service lock failure preserves running app and original package files");
+        CloseHandle(lock);
+    }
+    old.kill();
+    old.waitForFinished(10000);
+}
+
 BOOL CALLBACK closeHelperWindow(HWND window, LPARAM helperId)
 {
     DWORD process = 0;
@@ -300,6 +332,7 @@ int main(int argc, char** argv)
         invalidPackageTests(workspace.path());
         traversalTests(workspace.path());
         replacementTests(workspace.path());
+        skillsServiceLockTests(workspace.path());
         rollbackTests(workspace.path());
     }
 #else

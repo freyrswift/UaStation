@@ -1,21 +1,107 @@
-﻿MIT License
+Ua Non-Commercial Source-Available License 1.0
 
 Copyright (c) 2026 Ua AI Toolbox Contributors
+Effective for newly licensed Ua material in version 2.2.3 and later.
 
-Permission is hereby granted, free of charge, to any person obtaining a copy
-of this software and associated documentation files (the "Software"), to deal
-in the Software without restriction, including without limitation the rights
-to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
-copies of the Software, and to permit persons to whom the Software is
-furnished to do so, subject to the following conditions:
+1. Scope and existing rights
 
-The above copyright notice and this permission notice shall be included in all
-copies or substantial portions of the Software.
+"Covered Material" means original Ua source code, binaries, prompts, artwork,
+and documentation offered under this license by a person entitled to license
+that material. It excludes third-party components and any material already
+obtained under a different license.
 
-THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
-IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
-FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
-AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
-LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
-OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
-SOFTWARE.
+This license does not revoke, narrow, or replace an earlier MIT or other license
+grant. Earlier Ua releases and previously MIT-licensed portions remain available
+under their original terms. Only rights actually held by a licensor are granted
+here. Third-party components retain their own licenses; those licenses control
+for those components, including rights to modification, redistribution,
+commercial use, debugging, or replacement of linked libraries.
+
+2. Non-commercial permission
+
+You may download, inspect, run, copy, and modify the Covered Material for your
+own personal, non-commercial learning, research, reference, and use. You may
+share unmodified copies or your modifications without charge for the same
+non-commercial purposes, provided you satisfy section 4.
+
+"Non-commercial" means not directed toward commercial advantage, business
+operations, compensation, or other monetary benefit. Free access alone does
+not make a business activity non-commercial. Using the Covered Material in
+paid employment, client work, a company's internal operations, or a revenue-
+generating product or service is outside this permission.
+
+3. Uses not granted
+
+Unless relevant copyright holders separately agree in writing, this license
+does not grant permission to:
+
+(a) sell, resell, rent, sublicense for a fee, or otherwise charge for access to
+    the Covered Material, modified versions, or download links;
+(b) bundle it into a paid product, membership, subscription, course, training,
+    installation service, support package, consultancy, or hosted service;
+(c) use it to deliver paid work, commercial automation, customer services,
+    enterprise deployment, advertising-supported access, or another business
+    activity, even if the Covered Material is described as a free bonus;
+(d) gate access or continued use behind payment, a mandatory donation, a paid
+    group, a purchase, an affiliate transaction, or another indirect charge;
+(e) remove or conceal attribution, license terms, third-party notices, or the
+    origin of the Covered Material when sharing it;
+(f) present a fork, repackaged binary, paid offering, or third-party service as
+    an official Ua release or as endorsed by the maintainers.
+
+4. Conditions for permitted sharing
+
+Keep this license, applicable copyright notices, third-party license texts, and
+a link to https://github.com/freyrswift/UaStation with copies you share. Clearly
+identify modifications and their author; do not imply that maintainers reviewed
+or support your version. Include corresponding source for your modifications
+under this license when sharing a modified binary. Do not impose additional
+conditions that remove recipients' permissions under this license or under an
+applicable third-party license.
+
+Do not bundle credentials, private keys, personal data, undisclosed telemetry,
+or unrelated software into a distribution represented as an Ua release. Users
+must not be misled about the source, contents, price, or affiliation of a copy.
+
+5. Separate rights and services
+
+No trademark, endorsement, third-party account, API credit, model subscription,
+or access to someone else's system is granted. Product names and logos belong
+to their respective holders. This license does not grant rights in AI-generated
+output that the licensor does not own, nor replace third-party service terms.
+It does not authorize malicious damage to or interference with another
+person's programs, systems, or data.
+
+6. Breach and enforcement
+
+Permissions under this license end for a recipient who breaches its conditions.
+Stop activities relying on this license and remove copies held solely under
+it; rights independently granted by another license remain unaffected. A new
+permission from the relevant rights holder is required to resume the activity.
+
+On discovering prohibited commercial exploitation or malicious damage, relevant
+rights holders may preserve evidence, request removal, complain to a platform,
+pursue civil remedies, and report suspected violations to competent authorities.
+This provision grants no rights over third-party material and does not make
+every breach a criminal offense or predetermine liability. Responsibility and
+remedies are determined under applicable law.
+
+7. Warranty and responsibility
+
+The Covered Material is provided without promises of availability, correctness,
+fitness, compatibility, or uninterrupted service. To the extent permitted by
+applicable law, the licensors provide no warranty and accept no liability for
+loss arising from its use. Nothing in this license excludes duties or liability
+that applicable law does not permit a party to exclude.
+
+8. Interpretation
+
+This is a source-available, non-commercial license, not an MIT license or an
+unrestricted open-source license. No commercial permission is implied by a
+public repository, a free download, a fork, attribution, or a third party's
+claim. A separate written agreement controls only within the rights and scope
+it expressly grants. If one provision is ineffective, the remaining provisions
+continue to apply to the extent permitted by law.
+
+The English text above is the license. Chinese usage guidance is provided in
+docs/usage-policy.md; it does not override this text or third-party licenses.

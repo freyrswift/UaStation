@@ -1,6 +1,7 @@
 // skills.cpp - Install / uninstall embedded skill packs
 
 #include "skills.h"
+#include "skill_catalog.h"
 #include "items.h"
 #include "paths.h"
 #include "injector.h"
@@ -134,6 +135,25 @@ bool plainPath(const QString& path, const QString& boundary = QString())
     }
 }
 
+#if defined(Q_OS_WIN)
+constexpr auto pathCase = Qt::CaseInsensitive;
+#else
+constexpr auto pathCase = Qt::CaseSensitive;
+#endif
+
+QString sharedSkillsRoot()
+{
+    return QDir::cleanPath(homeDir() + QStringLiteral("/.agents/skills"));
+}
+
+bool validSharedSkillsRoot(const QString& itemId, const QString& root)
+{
+    const bool shared = QDir::cleanPath(root).compare(sharedSkillsRoot(), pathCase) == 0;
+    if (itemId != QLatin1String("vscode") && !shared) return true;
+    return QDir::isAbsolutePath(root) &&
+        shared && plainPath(root, homeDir());
+}
+
 QString metaPath(const QString& itemId, const QString& name,
                  const QString& relative, const QString& suffix)
 {
@@ -220,8 +240,12 @@ bool extractFile(const QString& itemId, const QString& name, const QString& rela
                  const QString& root, bool legacyOwned)
 {
     bool read = false;
-    const QByteArray data = Injector::readFile(":/skills/" + name + '/' + relative, &read);
+    QByteArray data = Injector::readFile(":/skills/" + name + '/' + relative, &read);
     if (!read) return false;
+    if (itemId == QLatin1String("vscode") && relative == QLatin1String("SKILL.md")) {
+        data = SkillCatalog::normalize(data, name, &read);
+        if (!read) return false;
+    }
     const QString target = root + '/' + name + '/' + relative;
     if (!plainPath(target, root)) return false;
     const QString original = metaPath(itemId, name, relative, ".orig");
@@ -303,6 +327,21 @@ QStringList Skills::installInto(const QString& itemId, const QString& root, bool
     if (ok) *ok = false;
     if (!itemWithSkills(itemId) || !QDir::isAbsolutePath(root) || !plainPath(root)) return {};
     const QString normalizedRoot = QDir::cleanPath(root);
+    const QString sharedRoot = sharedSkillsRoot();
+    if (normalizedRoot.compare(sharedRoot, pathCase) == 0 &&
+        itemId != QLatin1String("vscode")) return {};
+    if (itemId == QLatin1String("vscode")) {
+        if (!validSharedSkillsRoot(itemId, normalizedRoot)) return {};
+        for (const auto& item : allItems()) {
+            if (item.id == itemId) continue;
+            const auto ownedRoot = QString::fromUtf8(Injector::readFile(skillsRootFileFor(item.id))).trimmed();
+            if (!ownedRoot.isEmpty() && QDir::cleanPath(ownedRoot).compare(sharedRoot, pathCase) == 0 &&
+                !loadInstalledNames(item.id).isEmpty()) {
+                qWarning() << "[skills] shared library already has an installation owner" << item.id;
+                return {};
+            }
+        }
+    }
     const QString savedRoot = QString::fromUtf8(Injector::readFile(skillsRootFileFor(itemId))).trimmed();
     const QStringList prior = loadInstalledNames(itemId);
     QStringList allNames = prior;
@@ -366,6 +405,7 @@ int Skills::removeFrom(const QString& root, const QStringList& names, const QStr
 {
     if (ok) *ok = false;
     if (!QDir::isAbsolutePath(root) || !plainPath(root) ||
+        !validSharedSkillsRoot(itemId, root) ||
         (!itemId.isEmpty() && !itemWithSkills(itemId))) return 0;
     detail::FileTransaction tx;
     if (!captureFiles(tx, itemId, root, names)) return 0;
@@ -430,6 +470,7 @@ bool Skills::intact(const QString& itemId, const QStringList& expectedNames)
     for (const auto& name : expectedNames) expected.insert(name);
     if (actual != expected) return false;
     const QString root = installedRoot(itemId);
+    if (!validSharedSkillsRoot(itemId, root)) return false;
     for (const auto& name : names) {
         if (!validName(name)) return false;
         bool valid = false;
@@ -438,13 +479,19 @@ bool Skills::intact(const QString& itemId, const QStringList& expectedNames)
         for (const auto& relative : files) {
             if (!QFileInfo(root + '/' + name + '/' + relative).isFile()) return false;
         }
+        if (itemId == QLatin1String("vscode")) {
+            SkillMetadata metadata;
+            if (!SkillCatalog::parse(Injector::readFile(root + '/' + name + "/SKILL.md"), &metadata) ||
+                metadata.name != name) return false;
+        }
     }
     return true;
 }
 
 QStringList Skills::transactionFiles(const QString& itemId, const QString& root, const QStringList& names)
 {
-    if (!QDir::isAbsolutePath(root)) return {};
+    if (!QDir::isAbsolutePath(root) ||
+        !validSharedSkillsRoot(itemId, root)) return {};
     QStringList paths;
     if (!itemId.isEmpty())
         paths << QDir::cleanPath(stateDir() + '/' + itemId + ".dat")

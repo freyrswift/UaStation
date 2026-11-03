@@ -1,13 +1,17 @@
 #include <QApplication>
+#include <QClipboard>
 #include <QCryptographicHash>
 #include <QDir>
+#include <QDirIterator>
 #include <QElapsedTimer>
 #include <QFile>
+#include <QFileInfo>
 #include <QFontDatabase>
 #include <QImage>
 #include <QJsonDocument>
 #include <QJsonArray>
 #include <QJsonObject>
+#include <QMap>
 #include <QDesktopServices>
 #include <QPainter>
 #include <QProcess>
@@ -37,6 +41,13 @@
 #include "core/skills.h"
 #include "core/app_strings.h"
 #include "platform/instance_activation.h"
+
+#if defined(Q_OS_WIN)
+#ifndef NOMINMAX
+#define NOMINMAX
+#endif
+#include <windows.h>
+#endif
 
 static QString fixtureRoot;
 
@@ -72,7 +83,7 @@ static void selectFixture(const QString& root, const char* name) {
                            "ZCODE_HOME", "GLM_HOME", "ZHIPU_HOME", "MIMOCODE_HOME",
                            "DOUBAO_USER_SKILLS", "GROK_HOME", "GROK_DIR", "GEMINI_HOME", "GEMINI_DIR",
                            "QWEN_HOME", "TRAE_HOME", "CODEBUDDY_HOME", "DEVIN_HOME", "WINDSURF_HOME",
-                           "CLINE_HOME", "COPILOT_HOME", "VSCODE_COPILOT_HOME", "KIMI_CODE_HOME"}) qunsetenv(key);
+                           "CLINE_HOME", "COPILOT_HOME", "VSCODE_COPILOT_HOME", "VSCODE_INSTALL_DIR", "KIMI_CODE_HOME"}) qunsetenv(key);
     ensureUserDirs();
     put(fixtureRoot + "/prompt.md", "Fixture prompt.\n");
 }
@@ -175,6 +186,311 @@ static QJsonObject jsonAt(const QString& path) {
     return doc.object();
 }
 
+static QByteArray skillBody(const QByteArray& document) {
+    QByteArray bytes = document;
+    Injector::stripBom(bytes);
+    int cursor = bytes.indexOf('\n') + 1;
+    if (cursor <= 0 || bytes.left(cursor).trimmed() != "---") return {};
+    while (cursor < bytes.size()) {
+        const int newline = bytes.indexOf('\n', cursor);
+        const int end = newline < 0 ? bytes.size() : newline;
+        if (bytes.mid(cursor, end - cursor).trimmed() == "---")
+            return newline < 0 ? QByteArray() : bytes.mid(newline + 1);
+        cursor = end + 1;
+    }
+    return {};
+}
+
+static QMap<QString, QByteArray> treeSnapshot(const QString& root) {
+    if (!QFileInfo(root).isDir()) qFatal("Fixture snapshot root is missing");
+    QMap<QString, QByteArray> snapshot;
+    QDirIterator entries(root, QDir::AllEntries | QDir::NoDotAndDotDot | QDir::Hidden | QDir::System,
+                         QDirIterator::Subdirectories);
+    while (entries.hasNext()) {
+        const QString path = entries.next();
+        const QString relative = QDir(root).relativeFilePath(path);
+        const QFileInfo info(path);
+        if (info.isSymLink()) {
+            snapshot.insert("link:" + relative, info.symLinkTarget().toUtf8());
+        } else if (info.isDir()) {
+            snapshot.insert("dir:" + relative, QByteArray{});
+        } else {
+            QFile file(path);
+            if (!file.open(QIODevice::ReadOnly)) qFatal("Fixture snapshot file is unreadable");
+            QCryptographicHash hash(QCryptographicHash::Sha256);
+            if (!hash.addData(&file)) qFatal("Fixture snapshot file read failed");
+            snapshot.insert("file:" + relative, hash.result());
+        }
+    }
+    return snapshot;
+}
+
+static bool createDirectoryLink(const QString& target, const QString& path) {
+#if defined(Q_OS_WIN)
+    const QString nativeTarget = QDir::toNativeSeparators(target);
+    const QString nativePath = QDir::toNativeSeparators(path);
+    if (CreateSymbolicLinkW(reinterpret_cast<LPCWSTR>(nativePath.utf16()),
+                           reinterpret_cast<LPCWSTR>(nativeTarget.utf16()),
+                           SYMBOLIC_LINK_FLAG_DIRECTORY | 0x2) != 0) return true;
+    QProcess junction;
+    junction.start(qEnvironmentVariable("ComSpec", QStringLiteral("cmd.exe")),
+                   {QStringLiteral("/c"), QStringLiteral("mklink"), QStringLiteral("/J"),
+                    nativePath, nativeTarget});
+    if (!junction.waitForStarted(5000)) {
+        if (junction.state() != QProcess::NotRunning) {
+            junction.kill();
+            junction.waitForFinished(5000);
+        }
+        return false;
+    }
+    if (!junction.waitForFinished(5000)) {
+        junction.kill();
+        junction.waitForFinished(5000);
+        return false;
+    }
+    return junction.exitStatus() == QProcess::NormalExit && junction.exitCode() == 0;
+#else
+    return QFile::link(target, path);
+#endif
+}
+
+static bool removeDirectoryLink(const QString& path) {
+#if defined(Q_OS_WIN)
+    const QString nativePath = QDir::toNativeSeparators(path);
+    return RemoveDirectoryW(reinterpret_cast<LPCWSTR>(nativePath.utf16())) != 0;
+#else
+    return QFile::remove(path);
+#endif
+}
+
+static void sharedSkillsTests(const QString& root, const std::function<void(bool, const char*)>& check) {
+    selectFixture(root, "shared-skills-ownership");
+    const Item* vscode = itemById("vscode");
+    check(vscode != nullptr, "Visual Studio Code has a shared-skills installation profile");
+    if (!vscode) return;
+    const QString library = homeDir() + "/.agents/skills";
+    const QString copilot = fixtureRoot + "/custom-copilot";
+    qputenv("VSCODE_COPILOT_HOME", copilot.toUtf8());
+    const auto plan = planFor(*vscode);
+    check(vscode->skillsDirRel == ".agents/skills" && plan.skillsDir == library &&
+          plan.targets.first().path == copilot + "/instructions/Ua.instructions.md",
+          "Copilot instruction override does not relocate the native shared library");
+    bool solePublisher = true;
+    for (const auto& item : allItems()) {
+        if (item.id != "vscode" && QDir::cleanPath(planFor(item).skillsDir) == QDir::cleanPath(library))
+            solePublisher = false;
+    }
+    check(solePublisher && planFor(*itemById("codex")).skillsDir == homeDir() + "/.codex/skills" &&
+          planFor(*itemById("claude")).skillsDir == homeDir() + "/.claude/skills",
+          "only one installation owner publishes the shared library while other profiles retain their roots");
+    check(allSkills().size() == 134, "shared library contains all 134 bundled skill packages");
+    bool secondOwner = true;
+    Skills::installInto("codex", library, &secondOwner);
+    check(!secondOwner && Skills::installedNames("codex").isEmpty() && !QFileInfo::exists(library),
+          "other tool installers cannot claim ownership of the reserved shared library");
+
+    const QString name = allSkills().first().dirName;
+    const QString package = library + '/' + name;
+    const QString originalPath = package + "/SKILL.md";
+    const QByteArray original = "Original user-owned skill.\r\n";
+    put(originalPath, original);
+    put(package + "/personal-note.txt", "Keep this personal file.\n");
+    put(library + "/unrelated-local/SKILL.md", "Unrelated local skill.\n");
+    const QString codexLocal = homeDir() + "/.codex/skills/local-skill/SKILL.md";
+    const QString claudeLocal = homeDir() + "/.claude/skills/local-skill/SKILL.md";
+    put(codexLocal, "Original Codex-local skill.\n");
+    put(claudeLocal, "Original Claude-local skill.\n");
+    bool installed = false;
+    const auto names = Skills::installInto("vscode", library, &installed);
+    check(installed && names.size() == allSkills().size() && Skills::installedRoot("vscode") == library &&
+          Skills::installedNames("vscode") == names && Skills::intact("vscode", names),
+          "shared installation records a complete intact package library under one owner");
+    check(Injector::readFile(codexLocal) == "Original Codex-local skill.\n" &&
+          Injector::readFile(claudeLocal) == "Original Claude-local skill.\n" &&
+          !QFileInfo::exists(homeDir() + "/.codex/skills/" + name + "/SKILL.md") &&
+          !QFileInfo::exists(homeDir() + "/.claude/skills/" + name + "/SKILL.md"),
+          "shared installation does not rewrite or duplicate other tools' local skill packages");
+
+    bool metadataValid = true, bodiesUnchanged = true, assetsUnchanged = true;
+    QSet<QString> canonicalNames;
+    int companionCount = 0;
+    for (const auto& skill : allSkills()) {
+        const QString resourceRoot = ":/skills/" + skill.dirName;
+        const auto bundled = Injector::readFile(resourceRoot + "/SKILL.md");
+        const auto deployed = Injector::readFile(library + '/' + skill.dirName + "/SKILL.md");
+        const auto text = QString::fromUtf8(deployed);
+        const QRegularExpression declaration("^name:[ \\t]*[\"']?" + QRegularExpression::escape(skill.dirName) +
+            "[\"']?[ \\t]*\\r?$", QRegularExpression::MultilineOption);
+        metadataValid = metadataValid && !deployed.isEmpty() && declaration.match(text).hasMatch() &&
+            QRegularExpression("^[a-z0-9]+(?:-[a-z0-9]+)*$").match(skill.dirName).hasMatch() &&
+            skill.dirName.size() <= 64 && !canonicalNames.contains(skill.dirName);
+        canonicalNames.insert(skill.dirName);
+        bodiesUnchanged = bodiesUnchanged && !skillBody(bundled).isEmpty() && skillBody(deployed) == skillBody(bundled);
+        QDirIterator files(resourceRoot, QDir::Files, QDirIterator::Subdirectories);
+        while (files.hasNext()) {
+            const QString source = files.next();
+            const QString relative = source.mid(resourceRoot.size() + 1);
+            if (relative == "SKILL.md") continue;
+            ++companionCount;
+            assetsUnchanged = assetsUnchanged && Injector::readFile(source) ==
+                Injector::readFile(library + '/' + skill.dirName + '/' + relative);
+        }
+    }
+    check(metadataValid && canonicalNames.size() == 134,
+          "every shared package declares a unique native skill name matching its directory");
+    check(bodiesUnchanged, "front matter normalization preserves every bundled skill body byte for byte");
+    check(companionCount > 0 && assetsUnchanged,
+          "shared installation includes all nested bundled scripts references and assets unchanged");
+    const QString changed = package + "/references/nested/guide.md";
+    const QByteArray installedReference = Injector::readFile(changed);
+    const QByteArray installedSkill = Injector::readFile(originalPath);
+    const QByteArray namesState = Injector::readFile(stateDir() + "/vscode-skills.dat");
+    const QString manifestPath = stateDir() + "/vscode-skills-backups/" +
+        QString::fromLatin1(name.toUtf8().toBase64(QByteArray::Base64UrlEncoding)) + ".files.json";
+    const QByteArray manifest = Injector::readFile(manifestPath);
+    bool repeated = false;
+    const auto repeatedNames = Skills::installInto("vscode", library, &repeated);
+    check(repeated && repeatedNames == names && Injector::readFile(originalPath) == installedSkill &&
+          Injector::readFile(manifestPath) == manifest && Injector::readFile(stateDir() + "/vscode-skills.dat") == namesState,
+          "shared reinstall is idempotent and retains the original restoration baseline");
+    put(changed, "User-edited shared reference.\n");
+    bool conflictInstall = true;
+    Skills::installInto("vscode", library, &conflictInstall);
+    check(!installedReference.isEmpty() && !conflictInstall &&
+          Injector::readFile(changed) == "User-edited shared reference.\n" &&
+          Injector::readFile(originalPath) == installedSkill && Injector::readFile(manifestPath) == manifest &&
+          Injector::readFile(stateDir() + "/vscode-skills.dat") == namesState,
+          "shared reinstall conflict preserves external edits and rolls package ownership metadata back");
+    bool conflictRemove = true;
+    const int removedBeforeRepair = Skills::removeFrom(library, names, "vscode", &conflictRemove);
+    check(!conflictRemove && removedBeforeRepair == 0 && Injector::readFile(originalPath) == installedSkill &&
+          Injector::readFile(changed) == "User-edited shared reference.\n" &&
+          Injector::readFile(manifestPath) == manifest,
+          "shared uninstall conflict rolls earlier restores back without deleting edited assets");
+    put(changed, installedReference);
+
+    const QString agents = homeDir() + "/.agents";
+    const QString redirectedAgents = homeDir() + "/.agents-redirect-target";
+    const auto libraryBeforeRedirect = treeSnapshot(agents);
+    const auto stateBeforeRedirect = treeSnapshot(stateDir());
+    const bool movedAgents = QDir().rename(agents, redirectedAgents);
+    check(movedAgents, "shared ancestor fixture moves the installed library within its temporary home");
+    if (movedAgents) {
+        const bool linkedAgents = createDirectoryLink(redirectedAgents, agents);
+        check(linkedAgents, "shared ancestor fixture redirects .agents through a directory link or junction");
+        if (linkedAgents) {
+            const auto unchanged = [&] {
+                return treeSnapshot(redirectedAgents) == libraryBeforeRedirect &&
+                    treeSnapshot(stateDir()) == stateBeforeRedirect;
+            };
+            check(!Skills::intact("vscode", names),
+                  "shared integrity rejects a redirected home ancestor");
+            check(Skills::transactionFiles("vscode", library, names).isEmpty() && unchanged(),
+                  "shared transaction capture rejects a redirected ancestor without changing target or ownership state");
+            check(Skills::transactionFiles(QString(), library, names).isEmpty() && unchanged(),
+                  "shared anonymous transaction capture also rejects a redirected ancestor");
+            bool redirectRemoved = true;
+            check(Skills::removeFrom(library, names, "vscode", &redirectRemoved) == 0 &&
+                  !redirectRemoved && unchanged(),
+                  "shared explicit-owner removal rejects a redirected ancestor without changing target or ownership state");
+            check(Skills::removeFrom(library, names) == 0 && unchanged(),
+                  "shared inferred-owner removal rejects a redirected ancestor without changing target or ownership state");
+            bool anonymousRemoved = true;
+            check(Skills::removeFrom(library, names, QString(), &anonymousRemoved) == 0 &&
+                  !anonymousRemoved && unchanged(),
+                  "shared anonymous removal also rejects a redirected ancestor");
+            bool redirectInstalled = true;
+            check(Skills::installInto("vscode", library, &redirectInstalled).isEmpty() &&
+                  !redirectInstalled && unchanged(),
+                  "shared reinstall rejects a redirected ancestor without changing target or ownership state");
+            const bool unlinkedAgents = removeDirectoryLink(agents);
+            check(unlinkedAgents, "shared ancestor fixture removes only its directory link or junction");
+            if (!unlinkedAgents) qFatal("Fixture ancestor link cleanup failed");
+        }
+        const bool restoredAgents = QDir().rename(redirectedAgents, agents);
+        check(restoredAgents, "shared ancestor fixture restores the original directory");
+        if (!restoredAgents) qFatal("Fixture ancestor directory restore failed");
+        check(treeSnapshot(agents) == libraryBeforeRedirect && treeSnapshot(stateDir()) == stateBeforeRedirect &&
+              Skills::intact("vscode", names),
+              "shared ancestor rejection preserves byte-exact files and ownership metadata after fixture restoration");
+    }
+
+    AppController controller;
+    const QString executable = QDir(QCoreApplication::applicationDirPath()).filePath(
+#if defined(Q_OS_WIN)
+        "ua-skills-mcp.exe"
+#else
+        "ua-skills-mcp"
+#endif
+    );
+    QStringList configFormats = {"vscode", "generic", "codex"};
+    for (const auto& format : configFormats) {
+        const QString config = controller.skillsMcpConfig(format);
+        bool valid = false;
+        if (format == "codex") {
+            valid = config.contains("[mcp_servers.ua-skills]") && config.contains("--root") &&
+                config.contains(library) && config.contains(executable);
+        } else {
+            QJsonParseError error;
+            const auto document = QJsonDocument::fromJson(config.toUtf8(), &error);
+            const auto servers = document.object().value(format == "vscode" ? "servers" : "mcpServers").toObject();
+            const auto server = servers.value("ua-skills").toObject();
+            const auto arguments = server.value("args").toArray();
+            valid = error.error == QJsonParseError::NoError && document.isObject() &&
+                server.value("command").toString() == executable && arguments == QJsonArray{"--root", library} &&
+                (format != "vscode" || server.value("type").toString() == "stdio");
+        }
+        check(valid, qPrintable(format + " MCP configuration selects the packaged server and the same shared library"));
+        QApplication::clipboard()->setText("Previous clipboard text");
+        check(controller.copySkillsMcpConfig(format) && QApplication::clipboard()->text() == config,
+              qPrintable(format + " MCP configuration round-trips through the clipboard"));
+    }
+    QApplication::clipboard()->setText("Keep unrelated clipboard text");
+    check(controller.skillsMcpConfig("unsupported").isEmpty() && !controller.copySkillsMcpConfig("unsupported") &&
+          QApplication::clipboard()->text() == "Keep unrelated clipboard text",
+          "invalid MCP formats preserve the existing clipboard");
+    UrlFixture folder;
+    QDesktopServices::setUrlHandler("file", &folder, "open");
+    controller.openSkillsFolder("vscode");
+    QDesktopServices::unsetUrlHandler("file");
+    check(QDir::cleanPath(folder.opened.toLocalFile()) == QDir::cleanPath(library),
+          "shared skills folder action opens the same native and MCP library");
+
+    bool removed = false;
+    check(Skills::removeFrom(library, names, "vscode", &removed) == names.size() && removed &&
+          Injector::readFile(originalPath) == original &&
+          Injector::readFile(package + "/personal-note.txt") == "Keep this personal file.\n" &&
+          Injector::readFile(library + "/unrelated-local/SKILL.md") == "Unrelated local skill.\n" &&
+          !QFileInfo::exists(changed) && !QFileInfo::exists(manifestPath),
+          "shared uninstall restores originals removes owned assets and preserves unrelated local files");
+
+    selectFixture(root, "shared-skills-legacy-repair");
+    const auto legacyPlan = planFor(*vscode);
+    const QString target = legacyPlan.targets.first().path;
+    const QByteArray originalInstructions = "---\napplyTo: \"**\"\n---\n\nExisting personal instruction.\n";
+    put(target, Injector::insertMarked(originalInstructions, Injector::wrapMarked("Legacy prompt only.\n")));
+    const QString originalBackup = backupsDir() + "/vscode-legacy-original.md";
+    put(originalBackup, originalInstructions);
+    ItemState legacy;
+    legacy.installedAt = QDateTime::currentMSecsSinceEpoch();
+    legacy.targets.push_back({target, originalBackup, true, static_cast<int>(TargetKind::Marked), {}});
+    check(Injector::saveState("vscode", legacy) && Injector::scan("vscode") == InstallState::NeedsRepair,
+          "legacy prompt-only Visual Studio Code state is flagged for shared skill repair");
+    const auto repaired = Injector::install("vscode", fixtureRoot + "/prompt.md");
+    ItemState repairedState;
+    check(repaired.ok && Injector::loadState("vscode", repairedState) && repairedState.skills.size() == 134 &&
+          Skills::installedRoot("vscode") == legacyPlan.skillsDir &&
+          Skills::intact("vscode", repairedState.skills) && Injector::scan("vscode") == InstallState::Installed,
+          "reinstall repairs a legacy prompt-only state with all 134 native and MCP skill packages");
+    check(Injector::readFile(target).contains(originalInstructions.trimmed()) &&
+          Injector::readFile(target).contains("applyTo: \"**\""),
+          "shared repair preserves personal instructions and Copilot front matter");
+    check(Injector::uninstall("vscode").ok && Injector::readFile(target) == originalInstructions &&
+          !Injector::hasState("vscode") && !QFileInfo::exists(legacyPlan.skillsDir + '/' + name + "/SKILL.md"),
+          "shared repair remains fully uninstallable to the original prompt-only baseline");
+    Injector::setProgressCallback({});
+}
+
 static InstallPlan workbuddyFixture(const QString& root, const char* name) {
     selectFixture(root, name);
     put(fixtureRoot + "/local/Programs/WorkBuddy/WorkBuddy.exe", "Fixture only\n");
@@ -203,7 +519,7 @@ static void progressTests(const QString& root, const std::function<void(bool, co
     Strings::instance()->setLang(Strings::CN);
     QVector<QVariantList> events;
     int starts = 0, finishes = 0, errors = 0, ticks = 0;
-    bool busy = false, reentered = false, rejected = false, finalStateSaved = false;
+    bool busy = false, reentered = false, rejected = false, locationRejected = false, finalStateSaved = false;
     QObject::connect(&controller, &AppController::installStarted, &controller, [&](const QString&, bool) { ++starts; busy = true; });
     QObject::connect(&controller, &AppController::installFinished, &controller, [&] { ++finishes; busy = false; });
     QObject::connect(&controller, &AppController::errorRaised, &controller, [&](const QString&) { ++errors; });
@@ -218,6 +534,7 @@ static void progressTests(const QString& root, const std::function<void(bool, co
         if (busy && !reentered) {
             reentered = true;
             rejected = !controller.install("codex", fixtureRoot + "/prompt.md");
+            locationRejected = !controller.setVscodeLocation(fixtureRoot + "/invalid.exe");
         }
     });
     qmlRegisterSingletonType(QUrl::fromLocalFile(QStringLiteral(UA_SOURCE_DIR "/qml/theme/Theme.qml")), "UaApp", 1, 0, "Theme");
@@ -261,7 +578,8 @@ static void progressTests(const QString& root, const std::function<void(bool, co
     QCoreApplication::processEvents();
     check(Injector::hasState("codex") && !dialog->isVisible(), "single button press installs without confirmation");
     check(starts == 1 && finishes == 1 && errors == 0 && !progress->isVisible(), "install progress starts and finishes once");
-    check(ticks > 0 && reentered && rejected, "UI stays responsive and duplicate install is rejected");
+    check(ticks > 0 && reentered && rejected && locationRejected,
+          "UI stays responsive and configuration changes are rejected during install");
     int last = -1, total = events.isEmpty() ? 0 : events.first()[1].toInt();
     bool ordered = !events.isEmpty();
     QSet<QString> skillPaths;
@@ -354,6 +672,250 @@ static void detectionRefreshTests(const QString& root, const std::function<void(
     check(QFile::remove(config), "external uninstall fixture removed");
     controller.showMainWindow();
     check(!codexDetected(), "restoring the window detects an externally removed tool");
+
+    const QString editor = fixtureRoot + "/Portable Tools/Visual Studio Code";
+#if defined(Q_OS_WIN)
+    const QString executable = editor + "/Code.exe";
+#else
+    const QString executable = editor + "/code";
+#endif
+    put(executable, "Fixture only. Never execute.\n");
+    check(QFile::setPermissions(executable, QFile::permissions(executable) | QFileDevice::ExeOwner |
+                               QFileDevice::ExeGroup | QFileDevice::ExeOther),
+          "manual editor fixture has executable permissions");
+    const QString copilotRoot = fixtureRoot + "/vscode-instructions";
+    const QString cliRoot = fixtureRoot + "/copilot-cli";
+    qputenv("VSCODE_COPILOT_HOME", copilotRoot.toUtf8());
+    qputenv("COPILOT_HOME", cliRoot.toUtf8());
+    put(copilotRoot + "/instructions/existing.instructions.md", "User instruction content.\n");
+    put(cliRoot + "/config.json", "{\"owner\":\"cli\"}\n");
+    const QString instructionTarget = planFor(*itemById("vscode")).targets.first().path;
+    const QString saved = configDir() + "/vscode-install-path.txt";
+    const auto vscodeSnapshot = [](AppController& app) {
+        for (const auto& item : app.editorItems())
+            if (item.toMap().value("id").toString() == "vscode") return item.toMap();
+        return QVariantMap{};
+    };
+    int refreshed = 0, errors = 0;
+    QObject::connect(&controller, &AppController::itemsChanged, &controller, [&] { ++refreshed; });
+    QObject::connect(&controller, &AppController::errorRaised, &controller, [&](const QString&) { ++errors; });
+    check(!controller.setVscodeLocation(fixtureRoot + "/missing/Code.exe") &&
+          !QFileInfo::exists(saved) && refreshed == 0 && errors == 1,
+          "invalid manual selection leaves existing settings and snapshot untouched");
+    check(controller.setVscodeLocation(executable) && refreshed == 1 &&
+          vscodeSnapshot(controller).value("detected").toBool() &&
+          vscodeSnapshot(controller).value("editorInstallDir").toString() == editor,
+          "manual executable selection immediately refreshes the Visual Studio Code card");
+    const QByteArray stored = Injector::readFile(saved);
+    check(QString::fromUtf8(stored).trimmed() == editor,
+          "selected editor location is persisted under the application config directory");
+    const QString unrelated = fixtureRoot + "/other.exe";
+    put(unrelated, "Not an editor.\n");
+    check(!controller.setVscodeLocation(unrelated) && refreshed == 1 && errors == 2 &&
+          Injector::readFile(saved) == stored &&
+          vscodeSnapshot(controller).value("editorInstallDir").toString() == editor,
+          "invalid replacement preserves the previous valid editor location");
+    controller.setUpdateInProgress(true);
+    check(!controller.setVscodeLocation(QString()) && Injector::readFile(saved) == stored && refreshed == 1,
+          "update preparation blocks manual editor configuration changes");
+    controller.setUpdateInProgress(false);
+    {
+        AppController relaunched;
+        check(vscodeSnapshot(relaunched).value("detected").toBool() &&
+              vscodeSnapshot(relaunched).value("editorInstallDir").toString() == editor,
+              "a new controller restores the persisted editor location");
+    }
+    check(toolConfigRoot("vscode") == copilotRoot && toolConfigRoot("copilot") == cliRoot &&
+          planFor(*itemById("vscode")).targets.first().path == instructionTarget &&
+          Injector::readFile(copilotRoot + "/instructions/existing.instructions.md") == "User instruction content.\n" &&
+          Injector::readFile(cliRoot + "/config.json") == "{\"owner\":\"cli\"}\n" &&
+          !QFileInfo::exists(instructionTarget),
+          "manual editor selection neither redirects nor writes Copilot or Copilot CLI configuration");
+    check(controller.setVscodeLocation(QString()) && !QFileInfo::exists(saved) && refreshed == 2,
+          "clearing a selected editor location restores automatic detection");
+    Injector::setProgressCallback({});
+}
+
+static void vscodeUiTests(const QString& root, const std::function<void(bool, const char*)>& check) {
+    selectFixture(root, "vscode-location-ui");
+    AppController controller;
+    qmlRegisterSingletonType(QUrl::fromLocalFile(QStringLiteral(UA_SOURCE_DIR "/qml/theme/Theme.qml")),
+                             "UaApp", 1, 0, "Theme");
+    qmlRegisterSingletonInstance("UaApp", 1, 0, "Strings", Strings::instance());
+    for (const auto& type : {"IconGlyph", "TitleButton"})
+        qmlRegisterType(QUrl::fromLocalFile(QStringLiteral(UA_SOURCE_DIR "/qml/components/") + type + ".qml"),
+                        "UaApp", 1, 0, type);
+    qmlRegisterType(QUrl::fromLocalFile(QStringLiteral(UA_SOURCE_DIR "/qml/dialogs/InjectDialog.qml")),
+                    "UaApp", 1, 0, "InjectDialog");
+    QFontDatabase::addApplicationFont(":/fonts/FluentSystemIcons-Resizable.ttf");
+    QQmlEngine engine;
+    engine.rootContext()->setContextProperty("app", &controller);
+    QStringList warnings;
+    QObject::connect(&engine, &QQmlEngine::warnings, &engine, [&](const QList<QQmlError>& errors) {
+        for (const auto& error : errors) warnings << error.toString();
+    });
+    QQmlComponent component(&engine);
+    component.setData("import QtQuick\nimport QtQuick.Window\nimport UaApp 1.0\n"
+        "Window { width: 460; height: 524; visible: true; color: Theme.bg; "
+        "property bool fixtureAbsent: true; "
+        "InjectDialog { objectName: 'dialog'; itemId: 'vscode'; "
+        "item: fixtureAbsent ? ({ id: 'vscode', name: 'Visual Studio Code', "
+        "logo: 'qrc:/logos/vscode.svg', supported: true, detected: false, state: 0, "
+        "hasTips: true, targetRel: '.copilot/instructions/Ua.instructions.md' }) "
+        ": app.items.find(it => it.id === itemId) } }", QUrl());
+    QScopedPointer<QObject> object(component.create());
+    auto* window = qobject_cast<QQuickWindow*>(object.data());
+    check(window != nullptr, "Visual Studio Code location dialog loads");
+    if (!window) {
+        QTextStream(stderr) << component.errorString();
+        Injector::setProgressCallback({});
+        return;
+    }
+    auto* dialog = window->findChild<QQuickItem*>("dialog");
+    auto* panel = window->findChild<QQuickItem*>("injectDialogPanel");
+    auto* choose = window->findChild<QQuickItem*>("chooseVscodeLocationButton");
+    auto* refresh = window->findChild<QQuickItem*>("refreshVscodeLocationButton");
+    auto* location = window->findChild<QQuickItem*>("editorLocationLabel");
+    auto* status = window->findChild<QQuickItem*>("toolDetectionLabel");
+    auto* promptsLabel = window->findChild<QQuickItem*>("injectDialogPromptsLabel");
+    auto* actions = window->findChild<QQuickItem*>("injectDialogActions");
+    auto* install = window->findChild<QQuickItem*>("installButton");
+    auto* sharedControls = window->findChild<QQuickItem*>("sharedSkillsControls");
+    auto* sharedStatus = window->findChild<QQuickItem*>("sharedSkillsStatus");
+    auto* openShared = window->findChild<QQuickItem*>("openSharedSkillsButton");
+    auto* mcpFormat = window->findChild<QQuickItem*>("skillsMcpFormat");
+    auto* copyMcp = window->findChild<QQuickItem*>("copySkillsMcpButton");
+    check(dialog && panel && choose && refresh && location && status && promptsLabel && actions && install,
+          "Visual Studio Code dialog exposes location, refresh and original installation controls");
+    if (!dialog || !panel || !choose || !refresh || !location || !status || !promptsLabel || !actions || !install) {
+        Injector::setProgressCallback({});
+        return;
+    }
+    check(sharedControls && sharedStatus && openShared && mcpFormat && copyMcp,
+          "Visual Studio Code dialog exposes shared skill status folder and all three MCP configuration controls");
+    if (!sharedControls || !sharedStatus || !openShared || !mcpFormat || !copyMcp) {
+        Injector::setProgressCallback({});
+        return;
+    }
+    auto pump = [] {
+        QElapsedTimer timer;
+        timer.start();
+        do {
+            QCoreApplication::processEvents(QEventLoop::AllEvents, 20);
+            QThread::msleep(5);
+        } while (timer.elapsed() < 180);
+    };
+    pump();
+    check(choose->isVisible() && refresh->isVisible() && !install->property("actionable").toBool(),
+          "missing-editor dialog keeps manual selection and refresh available");
+    check(actions->childItems().size() == 4 && panel->width() == 380 && panel->height() == 440,
+          "manual selection preserves the four-button footer and original dialog size");
+    check(sharedControls->isVisible() && sharedStatus->isVisible() &&
+          sharedStatus->property("text").toString().contains("/134"),
+          "shared library readiness remains visible before an editor is detected");
+    const QStringList formats = {"vscode", "generic", "codex"};
+    for (int index = 0; index < formats.size(); ++index) {
+        mcpFormat->setProperty("currentIndex", index);
+        QApplication::clipboard()->setText("Before dialog action");
+        check(QMetaObject::invokeMethod(copyMcp, "triggered") &&
+              QApplication::clipboard()->text() == controller.skillsMcpConfig(formats[index]),
+              qPrintable(formats[index] + " MCP dialog control copies its matching configuration"));
+    }
+    const QString editor = fixtureRoot + "/Portable Tools/Visual Studio Code";
+#if defined(Q_OS_WIN)
+    const QString executable = editor + "/Code - Insiders.exe";
+#else
+    const QString executable = editor + "/code-insiders";
+#endif
+    put(executable, "Fixture only. Never execute.\n");
+    check(QFile::setPermissions(executable, QFile::permissions(executable) | QFileDevice::ExeOwner |
+                               QFileDevice::ExeGroup | QFileDevice::ExeOther),
+          "Insiders UI fixture is executable without launching it");
+    window->setProperty("fixtureAbsent", false);
+    check(controller.setVscodeLocation(executable), "UI accepts an Insiders executable in a custom directory");
+    pump();
+    check(dialog->property("item").toMap().value("detected").toBool() &&
+          location->property("text").toString() == editor && choose->isVisible() && refresh->isVisible() &&
+          install->property("actionable").toBool() && !Injector::hasState("vscode"),
+          "manual selection updates the live dialog and enables install without performing injection");
+    int refreshes = 0;
+    QObject::connect(&controller, &AppController::itemsChanged, &controller, [&] { ++refreshes; });
+    check(QMetaObject::invokeMethod(refresh, "triggered") && refreshes == 1,
+          "refresh control reruns application detection");
+    const QString artifacts = qEnvironmentVariable("UA_UI_ARTIFACT_DIR");
+    if (!artifacts.isEmpty()) QDir().mkpath(artifacts);
+    auto* theme = engine.singletonInstance<QObject*>(qmlTypeId("UaApp", 1, 0, "Theme"));
+    for (bool absent : {true, false}) {
+        window->setProperty("fixtureAbsent", absent);
+        for (const auto& size : {QSize(460, 524), QSize(640, 720)}) {
+            window->resize(size);
+            for (int mode : {1, 2}) for (auto language : {Strings::CN, Strings::EN}) {
+                if (theme) theme->setProperty("mode", mode);
+                Strings::instance()->setLang(language);
+                pump();
+                const auto frame = window->grabWindow();
+                const auto chooseRect = choose->mapRectToItem(panel, choose->boundingRect());
+                const auto refreshRect = refresh->mapRectToItem(panel, refresh->boundingRect());
+                const auto promptsRect = promptsLabel->mapRectToItem(panel, promptsLabel->boundingRect());
+                bool footerFits = true;
+                for (auto* button : actions->childItems()) {
+                    const auto bounds = button->mapRectToItem(panel, button->boundingRect());
+                    footerFits = footerFits && button->width() == 72 && button->height() == 30 &&
+                        bounds.left() >= 0 && bounds.right() <= panel->width() && bounds.bottom() <= panel->height();
+                }
+                bool labelsFit = true;
+                for (auto* button : {choose, refresh}) {
+                    for (auto* child : button->childItems()) {
+                        if (child->property("text").isValid())
+                            labelsFit = labelsFit && child->width() + 8 <= button->width();
+                    }
+                }
+                check(!frame.isNull() && choose->isVisible() && refresh->isVisible() && labelsFit && footerFits &&
+                      chooseRect.left() >= 0 && refreshRect.right() <= panel->width() - 16 &&
+                      chooseRect.bottom() < promptsRect.top() && refreshRect.bottom() < promptsRect.top() &&
+                      !chooseRect.intersects(refreshRect),
+                      "localized editor location controls render and fit without overlapping existing controls");
+                check(status->property("text").toString() == Strings::instance()->get(
+                          absent ? Strings::ToolNotFound : Strings::NotInjected),
+                      "editor status remains localized before and after location selection");
+                const auto sharedRect = sharedControls->mapRectToItem(panel, sharedControls->boundingRect());
+                const auto sharedStatusRect = sharedStatus->mapRectToItem(panel, sharedStatus->boundingRect());
+                const auto footerRect = actions->mapRectToItem(panel, actions->boundingRect());
+                bool sharedFits = sharedControls->isVisible() && sharedStatus->isVisible() &&
+                    sharedRect.left() >= 16 && sharedRect.right() <= panel->width() - 16 &&
+                    sharedRect.top() > promptsRect.bottom() && sharedRect.bottom() < footerRect.top() &&
+                    sharedStatus->property("contentWidth").toReal() <= sharedStatus->width();
+                QList<QRectF> sharedButtons;
+                for (auto* button : {openShared, mcpFormat, copyMcp}) {
+                    const auto bounds = button->mapRectToItem(panel, button->boundingRect());
+                    sharedFits = sharedFits && button->isVisible() && bounds.left() >= 16 &&
+                        bounds.right() <= panel->width() - 16 && bounds.top() > sharedStatusRect.bottom() &&
+                        bounds.bottom() < footerRect.top();
+                    for (const auto& other : sharedButtons) sharedFits = sharedFits && !bounds.intersects(other);
+                    for (auto* child : button->childItems()) {
+                        if (child->isVisible() && child->property("contentWidth").isValid())
+                            sharedFits = sharedFits && child->property("contentWidth").toReal() <= button->width() - 8;
+                    }
+                    sharedButtons << bounds;
+                }
+                check(sharedFits,
+                      "localized shared skills controls fit the original dialog without text clipping or footer overlap");
+                if (!artifacts.isEmpty())
+                    check(frame.save(artifacts + QString("/vscode-location-%1-%2-%3-%4.png")
+                        .arg(absent ? "absent" : "detected").arg(size.width()).arg(mode).arg(language)),
+                          "editor location screenshot saved");
+            }
+        }
+    }
+    window->setProperty("fixtureAbsent", false);
+    dialog->setProperty("itemId", "codex");
+    pump();
+    check(!sharedControls->isVisible() && !sharedStatus->isVisible() && !openShared->isVisible() &&
+          !mcpFormat->isVisible() && !copyMcp->isVisible() &&
+          !choose->isVisible() && !refresh->isVisible(),
+          "other tool dialogs keep their existing controls without Visual Studio Code shared-library actions");
+    check(warnings.isEmpty(), "Visual Studio Code location dialog has no QML runtime warnings");
+    if (!warnings.isEmpty()) QTextStream(stderr) << warnings.join('\n') << '\n';
     Injector::setProgressCallback({});
 }
 
@@ -628,8 +1190,20 @@ int main(int argc, char** argv) {
         return failures == 0 ? 0 : 1;
     }
 
+    if (app.arguments().contains("--shared-skills-only")) {
+        sharedSkillsTests(temp.path(), check);
+        out << checks << " checks, " << failures << " failures\n";
+        return failures == 0 ? 0 : 1;
+    }
+
     if (app.arguments().contains("--detection-refresh-only")) {
         detectionRefreshTests(temp.path(), check);
+        out << checks << " checks, " << failures << " failures\n";
+        return failures == 0 ? 0 : 1;
+    }
+
+    if (app.arguments().contains("--vscode-ui-only")) {
+        vscodeUiTests(temp.path(), check);
         out << checks << " checks, " << failures << " failures\n";
         return failures == 0 ? 0 : 1;
     }

@@ -1,4 +1,5 @@
 import QtQuick
+import QtQuick.Controls
 import UaApp
 
 Item {
@@ -26,6 +27,7 @@ Item {
     }
 
     Rectangle {
+        objectName: "injectDialogPanel"
         anchors.horizontalCenter: parent.horizontalCenter
         anchors.top: parent.top
         anchors.topMargin: 60
@@ -69,6 +71,7 @@ Item {
                     font.bold: true
                 }
                 Text {
+                    objectName: "toolDetectionLabel"
                     text: {
                         if (!root.item) return ""
                         if (!root.item.supported) return (Strings.lang, Strings.t(Strings.NotSupported))
@@ -86,36 +89,77 @@ Item {
                 // Where this tool actually reads its instructions from, and how
                 // the change takes effect — both differ per product.
                 Text {
+                    id: locationLabel
+                    objectName: "editorLocationLabel"
                     width: 292
                     visible: text !== ""
-                    text: root.item && root.item.targetRel ? "~/" + root.item.targetRel : ""
+                    text: root.itemId === "vscode"
+                          ? (root.item.editorInstallDir || "")
+                          : (root.item && root.item.targetRel ? "~/" + root.item.targetRel : "")
+                    color: Theme.sub
+                    opacity: 0.75
+                    font.pixelSize: 9
+                    elide: Text.ElideMiddle
+                    MouseArea {
+                        id: locationHover
+                        anchors.fill: parent
+                        hoverEnabled: true
+                        acceptedButtons: Qt.NoButton
+                    }
+                    ToolTip.visible: locationHover.containsMouse
+                    ToolTip.text: locationLabel.text
+                    ToolTip.delay: 400
+                }
+                Text {
+                    objectName: "vscodeInstructionLocationLabel"
+                    width: 292
+                    visible: root.itemId === "vscode"
+                    text: root.item.instructionPath || "~/.copilot/instructions/Ua.instructions.md"
                     color: Theme.sub
                     opacity: 0.75
                     font.pixelSize: 9
                     elide: Text.ElideMiddle
                 }
                 // Phrasing guide (only some products ship one).
-                Rectangle {
-                    visible: root.item && root.item.hasTips === true
-                    height: 20
-                    width: tipLabel.implicitWidth + 16
-                    radius: 4
-                    color: tipMa.containsMouse ? Theme.surfaceAlt : "transparent"
-                    border.width: 1
-                    border.color: Theme.stroke
-                    Text {
-                        id: tipLabel
-                        anchors.centerIn: parent
-                        text: "使用技巧"
-                        color: Theme.accent
-                        font.pixelSize: 10
+                Row {
+                    spacing: 6
+                    Rectangle {
+                        visible: root.item && root.item.hasTips === true
+                        height: 20
+                        width: tipLabel.implicitWidth + 16
+                        radius: 4
+                        color: tipMa.containsMouse ? Theme.surfaceAlt : "transparent"
+                        border.width: 1
+                        border.color: Theme.stroke
+                        Text {
+                            id: tipLabel
+                            anchors.centerIn: parent
+                            text: "使用技巧"
+                            color: Theme.accent
+                            font.pixelSize: 10
+                        }
+                        MouseArea {
+                            id: tipMa
+                            anchors.fill: parent
+                            hoverEnabled: true
+                            cursorShape: Qt.PointingHandCursor
+                            onClicked: app.openTip(root.itemId)
+                        }
                     }
-                    MouseArea {
-                        id: tipMa
-                        anchors.fill: parent
-                        hoverEnabled: true
-                        cursorShape: Qt.PointingHandCursor
-                        onClicked: app.openTip(root.itemId)
+                    DialogButton {
+                        objectName: "chooseVscodeLocationButton"
+                        visible: root.itemId === "vscode"
+                        width: 92; height: 20
+                        label: Strings.lang === 0 ? "选择程序" : "Locate program"
+                        onTriggered: app.chooseVscodeLocation()
+                    }
+                    DialogButton {
+                        objectName: "refreshVscodeLocationButton"
+                        visible: root.itemId === "vscode"
+                        width: 24; height: 20
+                        glyph: "\ue0bf"
+                        label: Strings.lang === 0 ? "刷新" : "Refresh"
+                        onTriggered: app.refreshStates()
                     }
                 }
             }
@@ -124,6 +168,7 @@ Item {
         // Prompts list
         Text {
             id: promptsLabel
+            objectName: "injectDialogPromptsLabel"
             anchors { top: parent.top; left: parent.left; margins: 16; topMargin: 104 }
             text: (Strings.lang, Strings.t(Strings.SelectPrompt))
             color: Theme.sub
@@ -173,8 +218,92 @@ Item {
             font.pixelSize: 11
         }
 
+        Column {
+            objectName: "sharedSkillsControls"
+            visible: root.itemId === "vscode"
+            anchors { left: parent.left; right: parent.right; top: promptsList.bottom; margins: 16; topMargin: 8 }
+            spacing: 5
+            Text {
+                objectName: "sharedSkillsStatus"
+                width: parent.width
+                text: (Strings.lang === 0 ? "共享技能 " : "Shared skills ")
+                      + (root.item.sharedSkillsCount || 0) + "/" + (root.item.sharedSkillsTotal || 134)
+                color: Theme.sub
+                font.pixelSize: 11
+                elide: Text.ElideRight
+            }
+            Row {
+                spacing: 6
+                DialogButton {
+                    objectName: "openSharedSkillsButton"
+                    width: 26; height: 22
+                    glyph: "\ue8eb"
+                    label: Strings.lang === 0 ? "技能目录" : "Skills folder"
+                    onTriggered: app.openSkillsFolder("vscode")
+                }
+                ComboBox {
+                    id: mcpFormat
+                    objectName: "skillsMcpFormat"
+                    width: 210; height: 22
+                    font.pixelSize: 11
+                    textRole: "label"
+                    model: [
+                        { label: "MCP: Visual Studio Code", format: "vscode" },
+                        { label: Strings.lang === 0 ? "MCP: 通用" : "MCP: Generic", format: "generic" },
+                        { label: "MCP: Codex", format: "codex" }
+                    ]
+                    Accessible.name: Strings.lang === 0 ? "MCP 配置格式" : "MCP configuration format"
+                    contentItem: Text {
+                        leftPadding: 8
+                        rightPadding: 24
+                        text: mcpFormat.displayText
+                        color: Theme.text
+                        font: mcpFormat.font
+                        verticalAlignment: Text.AlignVCenter
+                        elide: Text.ElideRight
+                    }
+                    indicator: IconGlyph {
+                        x: mcpFormat.width - width - 6
+                        y: (mcpFormat.height - height) / 2
+                        text: "\ue488"
+                        pixelSize: 12
+                        color: Theme.sub
+                    }
+                    background: Rectangle {
+                        radius: 4
+                        color: Theme.surfaceAlt
+                        border.width: 1
+                        border.color: mcpFormat.activeFocus ? Theme.accent : Theme.stroke
+                    }
+                    delegate: ItemDelegate {
+                        width: mcpFormat.width
+                        height: 28
+                        highlighted: mcpFormat.highlightedIndex === index
+                        contentItem: Text {
+                            text: modelData.label
+                            color: Theme.text
+                            font: mcpFormat.font
+                            elide: Text.ElideRight
+                            verticalAlignment: Text.AlignVCenter
+                        }
+                        background: Rectangle {
+                            color: highlighted ? Theme.surfaceAlt : Theme.surface
+                        }
+                    }
+                }
+                DialogButton {
+                    objectName: "copySkillsMcpButton"
+                    width: 26; height: 22
+                    glyph: "\ue5d7"
+                    label: Strings.lang === 0 ? "复制 MCP 配置" : "Copy MCP configuration"
+                    onTriggered: app.copySkillsMcpConfig(mcpFormat.model[mcpFormat.currentIndex].format)
+                }
+            }
+        }
+
         // Buttons row
         Row {
+            objectName: "injectDialogActions"
             anchors { bottom: parent.bottom; horizontalCenter: parent.horizontalCenter; bottomMargin: 16 }
             spacing: 10
 
@@ -264,6 +393,7 @@ Item {
     component DialogButton : Rectangle {
         id: btn
         property string label
+        property string glyph: ""
         property bool   primary: false
         property bool   actionable: true   // avoid clashing with QQuickItem.enabled
         signal triggered()
@@ -276,13 +406,26 @@ Item {
         border.width: btn.primary ? 0 : 1
         border.color: Theme.stroke
         opacity: btn.actionable ? 1 : 0.6
+        Accessible.name: btn.label
+        ToolTip.visible: ma.containsMouse && btn.glyph !== ""
+        ToolTip.text: btn.label
+        ToolTip.delay: 400
 
         Text {
             anchors.centerIn: parent
+            visible: btn.glyph === ""
+            width: visible ? implicitWidth : 0
             text: btn.label
             color: btn.primary ? "#1A1A1A" : Theme.text
             font.pixelSize: 11
             font.bold: btn.primary
+        }
+        IconGlyph {
+            anchors.centerIn: parent
+            visible: btn.glyph !== ""
+            text: btn.glyph
+            font.pixelSize: 12
+            color: Theme.text
         }
         MouseArea {
             id: ma

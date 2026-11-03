@@ -214,7 +214,7 @@ const QVector<Item>& allItems()
             QStringLiteral("https://code.visualstudio.com/"),
             QStringLiteral(".copilot/instructions/Ua.instructions.md"),
             {},
-            {},
+            QStringLiteral(".agents/skills"),
             false,
             -1, -1, Strings::HintReloadWindow, 0,
         },
