@@ -5,6 +5,7 @@
 #include <QFile>
 #include <QFileInfo>
 #include <QSaveFile>
+#include <QSet>
 #include <QTemporaryDir>
 #include <QVector>
 
@@ -42,9 +43,7 @@ class FileTransaction {
 public:
     bool capture(const QString& path) {
         if (path.isEmpty()) return true;
-        for (const Entry& entry : m_entries) {
-            if (entry.path == path) return true;
-        }
+        if (m_captured.contains(path)) return true;
         if (!m_temp.isValid()) return false;
         Entry entry;
         entry.path = path;
@@ -57,6 +56,7 @@ public:
             if (!QFile::copy(path, entry.copy)) return false;
         }
         m_entries.push_back(entry);
+        m_captured.insert(path);
         return true;
     }
 
@@ -89,6 +89,7 @@ private:
     };
     QTemporaryDir m_temp;
     QVector<Entry> m_entries;
+    QSet<QString> m_captured;
     bool m_finished = false;
 };
 

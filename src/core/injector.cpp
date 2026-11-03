@@ -1303,8 +1303,10 @@ InjectResult Injector::install(const QString& itemId, const QString& promptFile)
         for (const auto& name : Skills::installedNames(itemId)) {
             if (!bundledNames.contains(name)) bundledNames << name;
         }
+        const QString previousRoot = Skills::installedRoot(itemId);
         if (!captureSkills(tx, itemId, plan.skillsDir, bundledNames) ||
-            !captureSkills(tx, itemId, Skills::installedRoot(itemId), bundledNames)) {
+            (previousRoot != plan.skillsDir &&
+             !captureSkills(tx, itemId, previousRoot, bundledNames))) {
             r.error = errText(Strings::ErrReadTarget);
             return r;
         }

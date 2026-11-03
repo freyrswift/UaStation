@@ -1,6 +1,7 @@
 #include <QApplication>
 #include <QClipboard>
 #include <QCryptographicHash>
+#include <QDateTime>
 #include <QDir>
 #include <QDirIterator>
 #include <QElapsedTimer>
@@ -34,6 +35,7 @@
 #include <qqml.h>
 
 #include "core/app_controller.h"
+#include "core/file_transaction.h"
 #include "core/injector.h"
 #include "core/install_plan.h"
 #include "core/items.h"
@@ -1254,6 +1256,30 @@ static void featureTests(const QString& root, const std::function<void(bool, con
     check(toolConfigRoot("workbuddy") == nativeRoot &&
           toolPath("workbuddy", ".workbuddy/skills") == nativeRoot + "/skills",
           "WorkBuddy uses its native config environment variable before legacy alias");
+    selectFixture(root, "file-transaction-capture");
+    const QString transactionExisting = fixtureRoot + "/existing.txt";
+    const QString transactionAbsent = fixtureRoot + "/absent.txt";
+    const QString transactionRetry = fixtureRoot + "/retry.txt";
+    put(transactionExisting, "first preimage\n");
+    {
+        detail::FileTransaction transaction;
+        check(transaction.capture(transactionExisting) && transaction.capture(transactionAbsent),
+              "file transaction captures existing and absent preimages");
+        put(transactionExisting, "intermediate bytes\n");
+        put(transactionAbsent, "new bytes\n");
+        check(transaction.capture(transactionExisting) && transaction.capture(transactionAbsent),
+              "duplicate capture retains the first existing and absent preimages");
+        check(QDir().mkpath(transactionRetry) && !transaction.capture(transactionRetry) &&
+              QDir().rmdir(transactionRetry), "failed transaction capture leaves its path retryable");
+        put(transactionRetry, "retry preimage\n");
+        check(transaction.capture(transactionRetry), "transaction retries a previously failed capture");
+        put(transactionExisting, "final bytes\n");
+        put(transactionAbsent, "final new bytes\n");
+        put(transactionRetry, "changed retry bytes\n");
+        check(transaction.rollback() && Injector::readFile(transactionExisting) == "first preimage\n" &&
+              !QFileInfo::exists(transactionAbsent) && Injector::readFile(transactionRetry) == "retry preimage\n",
+              "transaction rollback restores first preimages and successful retry preimage");
+    }
     selectFixture(root, "package-files");
     const QString name = allSkills().first().dirName;
     const QString skillsRoot = fixtureRoot + "/skills";
@@ -1261,9 +1287,12 @@ static void featureTests(const QString& root, const std::function<void(bool, con
     const QString script = package + "/scripts/check.js";
     const QString reference = package + "/references/nested/guide.md";
     const QString asset = package + "/assets/sample.csv";
+    const QString restoredReference = skillsRoot + "/rea-analysis-optimization/references/kuna-case-study.md";
+    const auto preexistingReference = Injector::readFile(":/skills/rea-analysis-optimization/references/kuna-case-study.md");
     const QString meta = stateDir() + "/claude-skills-backups/" +
         QString::fromLatin1(name.toUtf8().toBase64(QByteArray::Base64UrlEncoding));
     put(script, "original script\n");
+    put(restoredReference, preexistingReference);
     put(package + "/user.txt", "keep me\n");
     bool installed = false;
     const auto names = Skills::installInto("claude", skillsRoot, &installed);
@@ -1280,7 +1309,6 @@ static void featureTests(const QString& root, const std::function<void(bool, con
           "package installs script bytes without executing them");
     check(Skills::missingBundledAssets("radare2").isEmpty(),
           "bundled skill audit confirms radare2 companion assets");
-    const QString restoredReference = skillsRoot + "/rea-analysis-optimization/references/kuna-case-study.md";
     const QString restoredScript = skillsRoot + "/web-security/scripts/owasp_scanner.py";
     check(!Injector::readFile(restoredReference).isEmpty() &&
           Injector::readFile(restoredReference) == Injector::readFile(":/skills/rea-analysis-optimization/references/kuna-case-study.md") &&
@@ -1320,9 +1348,23 @@ static void featureTests(const QString& root, const std::function<void(bool, con
           "reinstall refreshes unchanged paths from their recorded older release without treating them as user edits");
     check(Skills::transactionFiles("claude", skillsRoot, {name}).contains(reference),
           "outer transaction captures companion files");
+    const QString scriptStamp = meta + '-' + QString::fromLatin1(QCryptographicHash::hash(
+        QByteArray("scripts/check.js"), QCryptographicHash::Sha256).toHex()) + ".sha256";
+    const auto installedStamp = Injector::readFile(scriptStamp);
+    const auto preservedTime = QDateTime::fromMSecsSinceEpoch(946684800000LL, Qt::UTC);
+    auto backdate = [&](const QString& path) {
+        QFile file(path);
+        return file.open(QIODevice::ReadWrite) && file.setFileTime(preservedTime, QFileDevice::FileModificationTime);
+    };
+    check(backdate(script) && backdate(scriptStamp), "managed companion and stamp timestamps can be backdated");
+    const auto scriptModified = QFileInfo(script).lastModified();
+    const auto stampModified = QFileInfo(scriptStamp).lastModified();
     bool reinstalled = false;
     Skills::installInto("claude", skillsRoot, &reinstalled);
     check(reinstalled, "complete package reinstall is idempotent");
+    check(Injector::readFile(script) == installedScript && Injector::readFile(scriptStamp) == installedStamp &&
+          QFileInfo(script).lastModified() == scriptModified && QFileInfo(scriptStamp).lastModified() == stampModified,
+          "unchanged managed companion reinstall preserves file and stamp bytes and modification times");
     put(reference, "user-edited reference\n");
     bool removed = true;
     check(Skills::removeFrom(skillsRoot, {name}, "claude", &removed) == 0 && !removed &&
@@ -1338,6 +1380,8 @@ static void featureTests(const QString& root, const std::function<void(bool, con
           !QFileInfo::exists(reference) && !QFileInfo::exists(asset) &&
           Injector::readFile(package + "/user.txt") == "keep me\n",
           "uninstall restores originals and preserves unrelated files");
+    check(Injector::readFile(restoredReference) == preexistingReference && QFileInfo::exists(restoredReference),
+          "uninstall restores an untracked preexisting companion even when its bytes matched the bundle");
     check(!QFileInfo::exists(meta + ".files.json") &&
           !QFileInfo::exists(package + "/references"), "uninstall removes manifests and empty nested directories");
 

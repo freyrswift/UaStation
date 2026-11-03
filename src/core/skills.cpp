@@ -209,6 +209,7 @@ bool extractFile(const QString& itemId, const QString& name, const QString& rela
             qWarning() << "[skills] preserving modified file" << target;
             return false;
         }
+        if (tracked && current == data) return true;
     }
     if (!tracked) {
         if (exists && !(legacyOwned && relative == "SKILL.md" && current == data)) {
