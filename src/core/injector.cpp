@@ -408,16 +408,34 @@ QByteArray decoratePrompt(const QString& itemId, const QByteArray& body)
     return QByteArray(kCommonPolicy) + (role ? QByteArray(role) : QByteArray()) + body;
 }
 
-QByteArray prepareIndex(const InstallPlan& plan, QByteArray& prompt)
+QByteArray prepareIndex(const QString& itemId, const InstallPlan& plan, QByteArray& prompt,
+                        const QString& timestamp)
 {
-    if (!plan.injectSkillIndex || plan.skillsDir.isEmpty()) return {};
+    if (!plan.injectSkillIndex || plan.skillsDir.isEmpty()) {
+        prompt = decoratePrompt(itemId, prompt);
+        return {};
+    }
     const QString index = Skills::buildIndex(plan.skillsDir);
     if (index.isEmpty()) return {};
-    const QString path = QDir::cleanPath(plan.skillsDir + QStringLiteral("/INDEX.md"));
-    prompt += "\n\n# 可用技能\n\n技能清单见 " + path.toUtf8();
-    prompt += " 。任务匹配时先读该文件，再读对应目录下的 SKILL.md，不要凭记忆直接做。\n";
-    return QStringLiteral("# 技能索引\n\n任务匹配时先读本文件，再读对应目录下的 "
-                          "SKILL.md，不要凭记忆直接做。\n\n").toUtf8() + index.toUtf8();
+    const auto withDiscovery = [&](bool includeNames) {
+        return decoratePrompt(itemId, Skills::buildDiscoveryPrompt(plan.skillsDir, includeNames).toUtf8() + prompt);
+    };
+    QByteArray decorated = withDiscovery(true);
+    if (plan.maxChars > 0) {
+        for (const auto& target : plan.targets) {
+            if (target.kind == TargetKind::PolicyReplace || target.kind == TargetKind::JsPatch) continue;
+            const bool existed = QFileInfo::exists(target.path);
+            bool read = false;
+            const auto doc = Injector::readFile(target.path, &read);
+            if ((existed && !read) || QString::fromUtf8(
+                    renderTarget(target, decorated, doc, existed, timestamp)).size() > plan.maxChars) {
+                decorated = withDiscovery(false);
+                break;
+            }
+        }
+    }
+    prompt = decorated;
+    return index.toUtf8();
 }
 
 QJsonValue settingValue(const QJsonObject& root, const QStringList& keys)
@@ -1124,6 +1142,15 @@ InstallState Injector::scan(const QString& itemId)
     const bool stateExists = loadState(itemId, state);
     if (!stateExists && hasState(itemId)) return InstallState::NeedsRepair;
     if (stateExists) {
+        if (plan.injectSkillIndex && !plan.skillsDir.isEmpty()) {
+            const QString indexPath = QDir::cleanPath(Skills::installedRoot(itemId) + "/INDEX.md");
+            const auto* index = findRecord(state, indexPath);
+            if (!index || index->kind != static_cast<int>(TargetKind::WholeFile) ||
+                index->patchStamp.isEmpty() || !QFileInfo(indexPath).isFile() ||
+                fileStamp(indexPath) != index->patchStamp ||
+                Skills::transactionFiles(itemId, Skills::installedRoot(itemId), {}).isEmpty())
+                return InstallState::NeedsRepair;
+        }
         for (const auto& rec : state.targets) {
             if (state.cacheFiles.contains(rec.path)) continue;
             if (!QFileInfo::exists(rec.path)) {
@@ -1149,7 +1176,7 @@ InstallState Injector::scan(const QString& itemId)
                 text.mid(line.start, line.length) != state.tomlInstalledLine))
                 return InstallState::NeedsRepair;
         }
-        if (itemId == QLatin1String("vscode") && state.skills.isEmpty())
+        if (!plan.skillsDir.isEmpty() && state.skills.isEmpty())
             return InstallState::NeedsRepair;
         if (!Skills::intact(itemId, state.skills)) return InstallState::NeedsRepair;
         return InstallState::Installed;
@@ -1232,8 +1259,6 @@ InjectResult Injector::install(const QString& itemId, const QString& promptFile)
     if (isUtf16(prompt)) { r.error = errText(Strings::ErrUtf16Prompt); return r; }
     if (prompt.isEmpty()) { r.error = errText(Strings::ErrEmptyPrompt); return r; }
 
-    prompt = decoratePrompt(itemId, prompt);
-
     const InstallPlan plan = planFor(*item);
     if (!plan.valid()) {
         qWarning() << "[inject] fail: no install targets for" << itemId;
@@ -1249,8 +1274,11 @@ InjectResult Injector::install(const QString& itemId, const QString& promptFile)
     }
     if (!haveState) st.installedAt = QDateTime::currentMSecsSinceEpoch();
 
-    const QByteArray index = plan.injectSkillIndex && !plan.skillsDir.isEmpty()
-        ? prepareIndex(plan, prompt) : QByteArray();
+    const QByteArray index = prepareIndex(itemId, plan, prompt, timestamp);
+    if (plan.injectSkillIndex && !plan.skillsDir.isEmpty() && index.isEmpty()) {
+        r.error = errText(Strings::ErrReadPrompt);
+        return r;
+    }
     const int skillCount = plan.skillsDir.isEmpty() ? 0 : allSkills().size();
     const int total = plan.targets.size() + skillCount + plan.cacheFiles.size() + 3
         + (!index.isEmpty() ? 1 : 0) + (!plan.appConfig.isEmpty() ? 1 : 0)
@@ -1268,11 +1296,20 @@ InjectResult Injector::install(const QString& itemId, const QString& promptFile)
         return r;
     }
 
-    // Some products (WorkBuddy) never hand the model a skill list, so a skill
-    // sitting in the folder is dead weight. The index goes into a file rather
-    // than the prompt: the prompt travels through the vendor's gateway on every
-    // request, and skill names/descriptions are exactly the kind of text its
-    // content filter rejects.
+    // Validate and capture the library, including its index, before any writes.
+    if (!plan.skillsDir.isEmpty()) {
+        QStringList bundledNames;
+        for (const SkillDef& sd : allSkills()) bundledNames << sd.dirName;
+        for (const auto& name : Skills::installedNames(itemId)) {
+            if (!bundledNames.contains(name)) bundledNames << name;
+        }
+        if (!captureSkills(tx, itemId, plan.skillsDir, bundledNames) ||
+            !captureSkills(tx, itemId, Skills::installedRoot(itemId), bundledNames)) {
+            r.error = errText(Strings::ErrReadTarget);
+            return r;
+        }
+    }
+
     if (plan.injectSkillIndex && !plan.skillsDir.isEmpty()) {
         if (!index.isEmpty()) {
             const QString indexPath = QDir::cleanPath(plan.skillsDir + QStringLiteral("/INDEX.md"));
@@ -1442,23 +1479,8 @@ InjectResult Injector::install(const QString& itemId, const QString& promptFile)
     }), st.settings.end());
     complete(stateFileFor(itemId));
 
-    // Capture skill files and ownership metadata before any writes so a later
-    // failure rolls this operation back without discarding an earlier install.
     if (!plan.skillsDir.isEmpty()) {
         report(plan.skillsDir);
-        QStringList bundledNames;
-        for (const SkillDef& sd : allSkills()) bundledNames << sd.dirName;
-        const QByteArray installedNames = readFile(stateDir() + QLatin1Char('/') + itemId +
-                                                   QStringLiteral("-skills.dat"));
-        for (const QByteArray& name : installedNames.split('\n')) {
-            const QString value = QString::fromUtf8(name).trimmed();
-            if (!value.isEmpty() && !bundledNames.contains(value)) bundledNames << value;
-        }
-        if (!captureSkills(tx, itemId, plan.skillsDir, bundledNames) ||
-            !captureSkills(tx, itemId, Skills::installedRoot(itemId), bundledNames)) {
-            r.error = errText(Strings::ErrReadTarget);
-            return r;
-        }
         bool skillsOk = false;
         const int skillStart = completed;
         const QStringList names = Skills::installInto(itemId, plan.skillsDir, &skillsOk,

@@ -1,5 +1,6 @@
 <RCC>
   <qresource prefix="/skills">
+    <file alias="fixture-missing-assets/SKILL.md">fixtures/package/missing-assets.md</file>
     <file alias="ai-llm-security/scripts/check.js">fixtures/package/scripts/check.js</file>
     <file alias="ai-llm-security/references/nested/guide.md">fixtures/package/references/nested/guide.md</file>
     <file alias="ai-llm-security/assets/sample.csv">fixtures/package/assets/sample.csv</file>

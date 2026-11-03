@@ -42,6 +42,10 @@ and redistributed skill bundles.
 | Fluent UI System Icons and the embedded [FluentSystemIcons-Resizable.ttf](https://github.com/freyrswift/UaStation/blob/main/resources/fonts/FluentSystemIcons-Resizable.ttf) icon font | [Microsoft Fluent UI System Icons](https://github.com/microsoft/fluentui-system-icons); upstream Copyright (c) 2020 Microsoft Corporation | MIT; the repository also explicitly marks its bundled icon font as MIT | Upstream [MIT license](https://github.com/microsoft/fluentui-system-icons/blob/main/LICENSE); packaged copy: [licenses/fluent-system-icons-MIT.txt](../licenses/fluent-system-icons-MIT.txt) |
 | Qt runtime, QML modules, and deployment plugins used by Ua and the skills MCP executable | [Qt](https://www.qt.io/); The Qt Company and other contributors as identified by the exact Qt distribution | Separately licensed: applicable Qt commercial terms or the open-source LGPL/GPL terms for the particular module and version, plus any third-party subcomponent terms | Packaged texts: [LGPL-3.0-only.txt](../licenses/qt/LGPL-3.0-only.txt), [GPL-3.0-only.txt](../licenses/qt/GPL-3.0-only.txt), and [Qt-GPL-exception-1.0.txt](../licenses/qt/Qt-GPL-exception-1.0.txt); see [Qt licensing](https://doc.qt.io/qt-6.8/licensing.html) |
 | Copilot logo artwork sourced from Primer Octicons | [primer/octicons](https://github.com/primer/octicons); Copyright (c) 2026 GitHub Inc., as recorded in the copied license | MIT for the icon artwork; trademark rights remain separate | Upstream [LICENSE](https://github.com/primer/octicons/blob/main/LICENSE); packaged copy: [licenses/primer-octicons-MIT.txt](../licenses/primer-octicons-MIT.txt) |
+| Cybersecurity skill scripts, examples and Python helpers restored in 2.2.4 | [Masriyan/Claude-Code-CyberSecurity-Skill](https://github.com/Masriyan/Claude-Code-CyberSecurity-Skill), revision `3aa77d84fb64cf07b550f6be4544bb91292db89f`; Copyright (c) 2025-2026 Riyan Pratama (Masriyan / sudo3rs) | Original MIT license and attribution NOTICE | Original LICENSE and NOTICE accompany each restored skill, including [web-security](../resources/skills/web-security/); no Ua license replaces them |
+| Unity Game Research companions | [avm-dev/unity-game-research](https://github.com/avm-dev/unity-game-research), revision `675a46af12ccf8e16dbb9cff26181c565df69adf`; Copyright (c) 2026 Aleksey Melnikov | MIT | [Original LICENSE](../resources/skills/unity-game-research/LICENSE) accompanies the skill; source revision is pinned here |
+| DMA research reference documents | [gmh5225/awesome-game-security](https://github.com/gmh5225/awesome-game-security), revision `a8fc1efad86fce3c04710f98f04b740dd2e21d6e`; Copyright (c) 2022 gmh | MIT | [Original LICENSE](../resources/skills/dma-attack/LICENSE) accompanies the restored references |
+| APK, MCP JS and softseep companion material | [angusdevgo/Seep-Reverse-Lab](https://github.com/angusdevgo/Seep-Reverse-Lab), historical revision `8f3c49c84bbfd7d3e9b9541e49beb36cdf1afa7a` | Preserve individual package/file terms; no repository-wide MIT grant is asserted | [APK LICENSE](../resources/skills/apkseep/LICENSE) and existing MIT metadata are retained where present. That historical root and MCP package do not supply a separate license notice; later repository licensing is not represented as the license of the historical snapshot |
 | Product logos and names used to identify supported clients | Respective owners; acquisition URLs, dates, and recorded digests are in [logos/sources.json](https://github.com/freyrswift/UaStation/blob/main/resources/logos/sources.json) | Applicable asset licenses and trademark/brand-use rules; no blanket Ua license grant | Preserve applicable source notices. The source record is provenance, not a license or trademark permission |
 
 ## Vendored skill provenance
@@ -67,6 +71,17 @@ directories, so the packaged copies at `licenses/rea-MIT.txt` and
 src-hunter copy at `licenses/src-hunter-MIT.txt` must remain as well. Repackaging
 extracted skills must preserve the applicable upstream notices; the new Ua
 license is not a substitute for them.
+
+The 2.2.4 companion recovery restores REA files from full revision
+`833136507dd79d959340b09862a53af344e4f1b3` and reverse-skill files from
+`cab634bd855fc287f6e420c1f36fd1a6b9245960`. The restored reverse-skill content
+matches the pinned Git blobs, allowing the CRLF checkout conversion declared
+for PowerShell files by that upstream's `.gitattributes`.
+Existing skill manifests are retained except for an explicit repository-root
+path clarification in the REA changelog skill. Local companions, external
+repository tools, generated outputs and separately installed runtimes are not
+interchangeable dependencies. Bundling a reference document does not bundle
+every external project it discusses.
 
 ## Icons, fonts, and marks
 

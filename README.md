@@ -51,6 +51,11 @@ Windows 发布包自带 Qt 与所需 MSVC 运行库，运行 Ua 本身不要求�
 提示词验证：输入独立的 `Ua`，预期回复“Ua 已经准备好随时待命”或
 “Ua is ready and standing by”。这只验证相应提示词响应，不代表 134 项技能全部加载或执行。
 
+从 2.2.4 起，19 个配置安装后都带统一技能发现入口和各自技能库的 `INDEX.md`。
+提示词记录实际根目录、索引路径及调用规则；字符上限允许时同时列出全部 134 个技能目录名，
+否则通过索引按需查找。客户端可使用原生技能、文件读取或已接入的只读 MCP，入口本身不赋予访问能力。
+升级 Ua 后需在对应卡片重新安装并重载客户端，才会更新已部署的提示词和技能索引。
+
 重要配置请自行保留备份。Ua 会对其管理的文件执行备份、事务回滚与修改冲突保护；
 这些机制不替代整机备份，也不保证外部工具升级后的路径和格式永远保持不变。
 
@@ -188,6 +193,10 @@ Visual Studio Code 中可使用 CMake Tools 配置、构建与运行已注册测
 [历史 MIT 授权](licenses/ua-prior-MIT.txt)。第三方组件保持自己的许可，不受本项目新增非商业条款改写。
 商标、Logo 与第三方服务归各自权利人所有，支持某款工具不代表与其厂商合作或由其背书。
 
+技能脚本与资料包含 Riyan Pratama（Masriyan / sudo3rs）的 Claude Code Cybersecurity Skills、
+Aleksey Melnikov 的 Unity Game Research，以及 gmh、REA、reverse-skill 等作者的成果。
+原始许可证、作者署名和 NOTICE 随相关技能保留，详见 [第三方来源说明](docs/THIRD_PARTY_NOTICES.md)。
+
 ## English
 
 **Ua Toolbox manages prompts and skill packages for 19 AI coding tools.**
@@ -212,6 +221,11 @@ Starting with 2.2.3, the Visual Studio Code adapter deploys all 134 skill packag
 to `~/.agents/skills`, separately from Copilot instructions. Other adapters keep
 their existing installation profiles. Native discovery requires a compatible
 client; other MCP-capable plugins can use the configuration copied from Ua.
+
+Starting with 2.2.4, all 19 profiles deploy a library and generate an `INDEX.md`.
+Installed prompts contain its absolute location and discovery rules, plus all
+directory names when the rendered target's character limit allows them.
+Reinstall through the corresponding Ua card after upgrading, then reload the client.
 
 The bundled read-only `ua-skills-mcp` exposes `list_skills`, `read_skill` and
 `read_asset`. It reads text resources, does not execute scripts, and does not

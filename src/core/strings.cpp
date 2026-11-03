@@ -159,6 +159,7 @@ constexpr std::array<std::array<const char*, 2>, Strings::_Count> kTable {{
     { "新版本 %1 / 当前 %2",    "New version %1 / Current %2" },
     { "打开下载文件夹",        "Open Folder" },
     { "下载完成后请解压或挂载更新包，退出当前软件后手动替换安装。", "Extract or mount the downloaded package, then quit the app and replace the installation manually." },
+    { "需修复",                "Repair needed" },
 }};
 
 constexpr const char* kLangSettingsKey = "ui/lang";

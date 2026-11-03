@@ -38,6 +38,7 @@
 #include "core/install_plan.h"
 #include "core/items.h"
 #include "core/prompts.h"
+#include "core/skill_catalog.h"
 #include "core/skills.h"
 #include "core/app_strings.h"
 #include "platform/instance_activation.h"
@@ -263,6 +264,280 @@ static bool removeDirectoryLink(const QString& path) {
 #endif
 }
 
+static void skillDiscoveryTests(const QString& root, const std::function<void(bool, const char*)>& check) {
+    const QString discoveryHeader = "# Ua Skill Discovery";
+    const QString namesHeader = "Directory names (routing hints, not loaded skill bodies): ";
+    const auto catalogObject = [](const QString& text) {
+        const QString fence = "```json\n";
+        const qsizetype begin = text.indexOf(fence);
+        const qsizetype end = begin < 0 ? -1 : text.indexOf("```", begin + fence.size());
+        if (end < 0) return QJsonObject{};
+        return QJsonDocument::fromJson(text.mid(begin + fence.size(), end - begin - fence.size()).toUtf8()).object();
+    };
+    const auto discoveryObject = [](const QString& text) {
+        const QString prefix = "Catalog: ";
+        const qsizetype begin = text.indexOf(prefix);
+        if (begin < 0) return QJsonObject{};
+        return QJsonDocument::fromJson(text.mid(begin + prefix.size()).section('\n', 0, 0).toUtf8()).object();
+    };
+    const auto hasIndexRecord = [](const ItemState& state, const QString& path) {
+        int matches = 0;
+        for (const auto& record : state.targets)
+            if (record.path == path && record.kind == static_cast<int>(TargetKind::WholeFile) &&
+                !record.patchStamp.isEmpty()) ++matches;
+        return matches == 1;
+    };
+
+    selectFixture(root, "skill-discovery-profiles");
+    // Keep host-install probing away from optional real WorkBuddy/ZCode targets.
+    put(fixtureRoot + "/local/Programs/WorkBuddy/WorkBuddy.exe", "Synthetic executable marker.\n");
+    put(fixtureRoot + "/local/Programs/ZCode/ZCode.exe", "Synthetic executable marker.\n");
+    QStringList directories;
+    QVector<SkillMetadata> metadata;
+    bool parsed = !allSkills().isEmpty();
+    for (const auto& skill : allSkills()) {
+        directories << skill.dirName;
+        SkillMetadata entry;
+        bool normalized = false;
+        const auto document = SkillCatalog::normalize(
+            Injector::readFile(":/skills/" + skill.dirName + "/SKILL.md"), skill.dirName, &normalized);
+        parsed = normalized && SkillCatalog::parse(document, &entry) && parsed;
+        metadata << entry;
+    }
+    check(parsed, "discovery fixture parses normalized canonical metadata for every shipped skill");
+    if (directories.isEmpty()) return;
+    const QMap<QString, QString> addedRoots = {
+        {"windsurf", ".codeium/windsurf/skills"}, {"gemini", ".gemini/skills"},
+        {"qwen", ".qwen/skills"}, {"trae", ".trae/skills"}, {"codebuddy", ".codebuddy/skills"},
+        {"cline", "Documents/Cline/skills"}, {"copilot", ".copilot/skills"}
+    };
+    int profiles = 0;
+    QSet<QString> roots;
+    for (const auto& item : allItems()) {
+        if (item.group != ItemGroup::Editor) continue;
+        ++profiles;
+        const auto plan = planFor(item);
+        const QString skillsRoot = QDir::cleanPath(plan.skillsDir);
+        bool contained = !item.skillsDirRel.isEmpty() && plan.valid() && plan.injectSkillIndex &&
+            QDir::isAbsolutePath(skillsRoot) && skillsRoot.startsWith(QDir::cleanPath(fixtureRoot) + '/');
+        for (const auto& target : plan.targets)
+            contained = contained && target.path.startsWith(QDir::cleanPath(fixtureRoot) + '/');
+        check(contained, qPrintable(item.id + " resolves discovery and prompt targets inside the fixture"));
+        if (!contained) continue;
+        roots.insert(skillsRoot);
+        if (addedRoots.contains(item.id))
+            check(item.skillsDirRel == addedRoots.value(item.id) && skillsRoot == homeDir() + '/' + addedRoots.value(item.id),
+                  qPrintable(item.id + " publishes its newly supported local skill root"));
+        const QString indexPath = skillsRoot + "/INDEX.md";
+        const auto catalog = Skills::buildIndex(skillsRoot);
+        const auto object = catalogObject(catalog);
+        const auto entries = object.value("skills").toArray();
+        bool exact = catalog.startsWith("# Ua Skill Catalog\n") && object.value("root").toString() == skillsRoot &&
+            entries.size() == directories.size();
+        for (qsizetype i = 0; i < entries.size() && i < directories.size(); ++i) {
+            const auto entry = entries.at(i).toObject();
+            exact = exact && entry.value("directory").toString() == directories.at(i) &&
+                entry.value("name").toString() == metadata.at(i).name &&
+                entry.value("description").toString() == metadata.at(i).description &&
+                entry.value("document").toString() == skillsRoot + '/' + directories.at(i) + "/SKILL.md";
+        }
+        check(exact, qPrintable(item.id + " catalog retains every exact name description and absolute document path"));
+        const auto full = Skills::buildDiscoveryPrompt(skillsRoot);
+        const auto compact = Skills::buildDiscoveryPrompt(skillsRoot, false);
+        const QJsonObject expected{{"root", skillsRoot}, {"index", indexPath}, {"count", directories.size()}};
+        const qsizetype namesAt = full.indexOf(namesHeader);
+        check(full.startsWith(discoveryHeader + '\n') && compact.startsWith(discoveryHeader + '\n') &&
+              discoveryObject(full) == expected && discoveryObject(compact) == expected && namesAt >= 0 &&
+              full.mid(namesAt + namesHeader.size()).trimmed() == directories.join(", ") &&
+              !compact.contains(namesHeader) && compact.size() < full.size(),
+              qPrintable(item.id + " full and compact discovery share the actual root index and count"));
+        check(compact.contains("native skill list first") && compact.contains("SKILL.md") &&
+              compact.contains("companion files") && compact.contains("tools are available") &&
+              compact.contains("list_skills") && compact.contains("read_skill") && compact.contains("read_asset") &&
+              compact.contains("nextOffset") && compact.contains("instead of claiming a skill was loaded") &&
+              compact.contains("does not prove skill loading") && compact.contains("Do not execute scripts"),
+              qPrintable(item.id + " compact discovery retains conditional file and MCP entrypoints without execution claims"));
+        check(Skills::transactionFiles(item.id, skillsRoot, {}).contains(indexPath) && !QFileInfo::exists(indexPath),
+              qPrintable(item.id + " captures the index transactionally without helper-side writes"));
+    }
+    check(profiles == 19 && roots.size() == 19, "all 19 editor profiles have independent discovery libraries");
+    check(InstallPlan{}.injectSkillIndex && Skills::buildIndex("relative/skills").isEmpty() &&
+          Skills::buildDiscoveryPrompt("relative/skills").isEmpty(),
+          "discovery defaults on and rejects relative catalog roots");
+
+    selectFixture(root, "skill-discovery-windsurf");
+    const auto capped = planFor(*itemById("windsurf"));
+    const QString cappedTarget = capped.targets.first().path;
+    const QString cappedIndex = capped.skillsDir + "/INDEX.md";
+    const QByteArray body = "# Synthetic routing body\nPreserve this entire body, including its final sentinel.\nBODY-END\n";
+    const QByteArray original = "Original Windsurf user instructions.\n";
+    const QString source = fixtureRoot + "/prompt.md";
+    put(source, body);
+    put(cappedTarget, original);
+    const bool first = Injector::install("windsurf", source).ok;
+    const auto firstTarget = Injector::readFile(cappedTarget);
+    ItemState firstState;
+    check(first && Injector::loadState("windsurf", firstState) && capped.maxChars == 6000 &&
+          QString::fromUtf8(firstTarget).size() <= capped.maxChars && firstTarget.contains(namesHeader.toUtf8()) &&
+          firstTarget.contains(body) && firstTarget.contains(original) && hasIndexRecord(firstState, cappedIndex),
+          "capped profile includes full directory names when the complete rendered target fits");
+    if (first && firstTarget.contains(namesHeader.toUtf8())) {
+        const int padding = qMax(0, capped.maxChars - static_cast<int>(QString::fromUtf8(firstTarget).size())) + 100;
+        const QByteArray userEdit = "\nUser text added outside the installed marker.\n" + QByteArray(padding, 'u') + "\nUSER-END\n";
+        const QByteArray editedTarget = firstTarget + userEdit;
+        const QByteArray expectedUserText = Injector::wipeMarked(editedTarget);
+        put(cappedTarget, editedTarget);
+        const bool repeated = Injector::install("windsurf", source).ok;
+        const auto compactTarget = Injector::readFile(cappedTarget);
+        ItemState repeatedState;
+        check(repeated && Injector::loadState("windsurf", repeatedState) &&
+              QString::fromUtf8(editedTarget).size() > capped.maxChars &&
+              QString::fromUtf8(compactTarget).size() <= capped.maxChars &&
+              compactTarget.contains(Skills::buildDiscoveryPrompt(capped.skillsDir, false).toUtf8()) &&
+              !compactTarget.contains(namesHeader.toUtf8()) && compactTarget.contains(body) &&
+              compactTarget.contains(original) && compactTarget.contains(userEdit) &&
+              repeatedState.targets.size() == firstState.targets.size() && hasIndexRecord(repeatedState, cappedIndex),
+              "rendered cap fallback keeps compact routing full body and surrounding user edits");
+        check(Injector::install("windsurf", source).ok && Injector::readFile(cappedTarget) == compactTarget &&
+              compactTarget.count(kMarkerBegin) == 1 && compactTarget.count(discoveryHeader.toUtf8()) == 1,
+              "repeat capped installation is byte-stable without duplicate routing blocks");
+        const auto stateBeforeFailure = treeSnapshot(stateDir());
+        const auto indexBeforeFailure = Injector::readFile(cappedIndex);
+        const QString oversizedSource = fixtureRoot + "/oversized-prompt.md";
+        const QByteArray oversizedBody = QByteArray(capped.maxChars + 1, 'p') + "\nOVERSIZED-END\n";
+        put(oversizedSource, oversizedBody);
+        check(!Injector::install("windsurf", oversizedSource).ok &&
+              Injector::readFile(cappedTarget) == compactTarget && Injector::readFile(cappedIndex) == indexBeforeFailure &&
+              treeSnapshot(stateDir()) == stateBeforeFailure && Injector::readFile(oversizedSource) == oversizedBody,
+              "over-cap body is rejected without truncating prompts index or ownership state");
+        check(Injector::uninstall("windsurf").ok && Injector::readFile(cappedTarget) == expectedUserText &&
+              !QFileInfo::exists(cappedIndex) && !Injector::hasState("windsurf") &&
+              !Injector::uninstall("windsurf").ok && Injector::readFile(cappedTarget) == expectedUserText,
+              "repeated capped uninstall removes discovery and preserves original plus later user text");
+    } else if (first) {
+        check(Injector::uninstall("windsurf").ok, "capped fixture cleanup after unexpected discovery size");
+    }
+    check(Injector::readFile(source) == body, "capped installation leaves its source prompt byte-exact");
+
+    selectFixture(root, "skill-discovery-gemini");
+    const auto gemini = planFor(*itemById("gemini"));
+    const QString target = gemini.targets.first().path;
+    const QString index = gemini.skillsDir + "/INDEX.md";
+    const QString package = gemini.skillsDir + '/' + directories.first();
+    const QByteArray originalPrompt = "Original Gemini instructions.\n";
+    const QByteArray originalIndex = "User-maintained skill index.\r\n";
+    const QByteArray originalSkill = "Synthetic preexisting skill body.\r\n";
+    const QByteArray promptSource = QByteArray("\xEF\xBB\xBF") + body;
+    put(fixtureRoot + "/prompt.md", promptSource);
+    put(target, originalPrompt);
+    put(index, originalIndex);
+    put(package + "/SKILL.md", originalSkill);
+    put(package + "/personal.txt", "Keep package user notes.\n");
+    put(gemini.skillsDir + "/local-only/SKILL.md", "Synthetic local-only skill.\n");
+    const bool installed = Injector::install("gemini", fixtureRoot + "/prompt.md").ok;
+    ItemState state;
+    const bool loaded = Injector::loadState("gemini", state);
+    check(installed && loaded && gemini.maxChars == 0 && state.skills == directories &&
+          Skills::installedRoot("gemini") == gemini.skillsDir && Skills::intact("gemini", state.skills) &&
+          hasIndexRecord(state, index) && Injector::scan("gemini") == InstallState::Installed &&
+          Injector::readFile(index) == Skills::buildIndex(gemini.skillsDir).toUtf8() &&
+          Injector::readFile(target).contains(Skills::buildDiscoveryPrompt(gemini.skillsDir).toUtf8()) &&
+          Injector::readFile(target).contains(body) && Injector::readFile(fixtureRoot + "/prompt.md") == promptSource,
+          "uncapped Gemini installs one complete local catalog and discovery while preserving its source body");
+    if (installed && loaded) {
+        auto legacy = state;
+        for (auto it = legacy.targets.begin(); it != legacy.targets.end();) {
+            if (it->path == index) it = legacy.targets.erase(it);
+            else ++it;
+        }
+        check(Injector::saveState("gemini", legacy) && Injector::scan("gemini") == InstallState::NeedsRepair,
+              "old skill-bearing state without an index record requires repair even when the index exists");
+        auto wrongKind = state;
+        auto wrongRoot = state;
+        for (auto& record : wrongKind.targets)
+            if (record.path == index) record.kind = static_cast<int>(TargetKind::Marked);
+        for (auto& record : wrongRoot.targets)
+            if (record.path == index) record.path = fixtureRoot + "/other-library/INDEX.md";
+        check(Injector::saveState("gemini", wrongKind) && Injector::scan("gemini") == InstallState::NeedsRepair &&
+              Injector::saveState("gemini", wrongRoot) && Injector::scan("gemini") == InstallState::NeedsRepair,
+              "repair scan requires a WholeFile index belonging to the recorded installed library");
+        auto emptySkills = state;
+        emptySkills.skills.clear();
+        check(Injector::saveState("gemini", emptySkills) && Injector::scan("gemini") == InstallState::NeedsRepair &&
+              Injector::saveState("gemini", state) && Injector::scan("gemini") == InstallState::Installed,
+              "repair scan requires nonempty skills and accepts the restored complete state");
+        const auto savedIndex = Injector::readFile(index);
+        qputenv("GEMINI_HOME", (fixtureRoot + "/changed-home").toUtf8());
+        check(Injector::scan("gemini") == InstallState::Installed,
+              "Gemini scan uses the recorded installed library after its environment root changes");
+        check(QFile::remove(index) && Injector::scan("gemini") == InstallState::NeedsRepair,
+              "Gemini scan detects a missing recorded index independently of the current environment root");
+        put(index, savedIndex);
+        qunsetenv("GEMINI_HOME");
+        check(Injector::scan("gemini") == InstallState::Installed,
+              "restoring the same Gemini index bytes and environment restores installed status");
+    }
+    const QByteArray geminiEdit = "Later Gemini user instructions.\n";
+    put(target, Injector::readFile(target) + geminiEdit);
+    const auto expectedGemini = Injector::wipeMarked(Injector::readFile(target));
+    check(installed && Injector::install("gemini", fixtureRoot + "/prompt.md").ok &&
+          Injector::readFile(target).count(discoveryHeader.toUtf8()) == 1 &&
+          Injector::readFile(target).contains(geminiEdit),
+          "uncapped reinstall retains later prompt edits and one discovery block");
+    check(Injector::uninstall("gemini").ok && Injector::readFile(target) == expectedGemini &&
+          Injector::readFile(index) == originalIndex && Injector::readFile(package + "/SKILL.md") == originalSkill &&
+          Injector::readFile(package + "/personal.txt") == "Keep package user notes.\n" &&
+          Injector::readFile(gemini.skillsDir + "/local-only/SKILL.md") == "Synthetic local-only skill.\n" &&
+          !QFileInfo::exists(package + "/scripts/check.js") && !Injector::hasState("gemini") &&
+          !Injector::uninstall("gemini").ok && Injector::readFile(index) == originalIndex &&
+          Injector::readFile(target) == expectedGemini && !Injector::hasState("gemini"),
+          "Gemini repeat uninstall restores original index and skill while retaining unrelated user files");
+
+    selectFixture(root, "skill-discovery-vscode");
+    qputenv("VSCODE_COPILOT_HOME", (fixtureRoot + "/custom-copilot").toUtf8());
+    const auto vscode = planFor(*itemById("vscode"));
+    const QString native = homeDir() + "/.agents/skills";
+    const QByteArray instructions = "---\napplyTo: \"**\"\n---\n\nOriginal VS Code user instructions.\n";
+    put(vscode.targets.first().path, instructions);
+    const bool vscodeInstalled = Injector::install("vscode", fixtureRoot + "/prompt.md").ok;
+    check(vscodeInstalled && vscode.skillsDir == native && Skills::installedRoot("vscode") == native &&
+          Injector::readFile(native + "/INDEX.md") == Skills::buildIndex(native).toUtf8() &&
+          Injector::readFile(vscode.targets.first().path).startsWith("---\napplyTo: \"**\"\n---") &&
+          Injector::readFile(vscode.targets.first().path).contains(Skills::buildDiscoveryPrompt(native).toUtf8()) &&
+          !QFileInfo::exists(fixtureRoot + "/custom-copilot/skills/INDEX.md"),
+          "VS Code discovery uses its existing native shared root despite the instruction override");
+    check(Injector::uninstall("vscode").ok && Injector::readFile(vscode.targets.first().path) == instructions &&
+          !QFileInfo::exists(native + "/INDEX.md") && !Injector::uninstall("vscode").ok &&
+          Injector::readFile(vscode.targets.first().path) == instructions && !Injector::hasState("vscode"),
+          "VS Code repeat uninstall restores original native instructions and removes its generated index");
+
+    selectFixture(root, "skill-discovery-linked-index");
+    const auto linked = planFor(*itemById("gemini"));
+    const QString linkedIndex = linked.skillsDir + "/INDEX.md";
+    const QString sentinelDir = fixtureRoot + "/index-link-target";
+    put(linked.targets.first().path, originalPrompt);
+    put(sentinelDir + "/sentinel.txt", "Do not overwrite this link target.\n");
+    check(QDir().mkpath(linked.skillsDir), "linked index fixture creates a local library directory");
+    const bool linkedCreated = createDirectoryLink(sentinelDir, linkedIndex);
+    check(linkedCreated, "index fixture creates a directory symlink or junction without external paths");
+    if (linkedCreated) {
+        const auto sentinelBefore = treeSnapshot(sentinelDir);
+        const auto stateBefore = treeSnapshot(stateDir());
+        const auto backupsBefore = treeSnapshot(backupsDir());
+        check(Skills::transactionFiles("gemini", linked.skillsDir, directories).isEmpty() &&
+              !Injector::install("gemini", fixtureRoot + "/prompt.md").ok &&
+              Injector::readFile(linked.targets.first().path) == originalPrompt &&
+              treeSnapshot(sentinelDir) == sentinelBefore && treeSnapshot(stateDir()) == stateBefore &&
+              treeSnapshot(backupsDir()) == backupsBefore && !Injector::hasState("gemini") &&
+              !QFileInfo::exists(linked.skillsDir + '/' + directories.first() + "/SKILL.md"),
+              "linked index preflight rejects installation before prompt library backup or state writes");
+        const bool removed = removeDirectoryLink(linkedIndex);
+        check(removed && Injector::readFile(sentinelDir + "/sentinel.txt") == "Do not overwrite this link target.\n",
+              "index link cleanup removes only the fixture link and preserves its sentinel");
+        if (!removed) qFatal("Fixture index link cleanup failed");
+    }
+}
+
 static void sharedSkillsTests(const QString& root, const std::function<void(bool, const char*)>& check) {
     selectFixture(root, "shared-skills-ownership");
     const Item* vscode = itemById("vscode");
@@ -368,6 +643,25 @@ static void sharedSkillsTests(const QString& root, const std::function<void(bool
           Injector::readFile(manifestPath) == manifest,
           "shared uninstall conflict rolls earlier restores back without deleting edited assets");
     put(changed, installedReference);
+
+    const QString referencesDir = package + "/references";
+    const QString heldReferences = package + "/held-references";
+    const bool movedReferences = QDir().rename(referencesDir, heldReferences);
+    check(movedReferences, "shared companion fixture moves its reference directory");
+    if (movedReferences) {
+        const bool linkedReferences = createDirectoryLink(heldReferences, referencesDir);
+        check(linkedReferences, "shared companion fixture redirects references through a directory link");
+        if (linkedReferences) {
+            check(!Skills::intact("vscode", names) &&
+                  Skills::transactionFiles("vscode", library, names).isEmpty(),
+                  "shared integrity and transaction capture both reject linked companion directories");
+            const bool unlinked = removeDirectoryLink(referencesDir);
+            check(unlinked, "shared companion fixture removes only its directory link");
+            if (!unlinked) qFatal("Fixture companion link cleanup failed");
+        }
+        check(QDir().rename(heldReferences, referencesDir) && Skills::intact("vscode", names),
+              "restoring the real companion directory restores intact status");
+    }
 
     const QString agents = homeDir() + "/.agents";
     const QString redirectedAgents = homeDir() + "/.agents-redirect-target";
@@ -583,16 +877,20 @@ static void progressTests(const QString& root, const std::function<void(bool, co
     int last = -1, total = events.isEmpty() ? 0 : events.first()[1].toInt();
     bool ordered = !events.isEmpty();
     QSet<QString> skillPaths;
+    QSet<QString> expectedSkillPaths;
+    const QString skillRoot = planFor(*itemById("codex")).skillsDir;
+    for (const auto& skill : allSkills())
+        expectedSkillPaths.insert(skillRoot + '/' + skill.dirName + "/SKILL.md");
     for (const auto& event : events) {
         const int current = event[0].toInt();
         ordered = ordered && current >= last && current <= total && event[1].toInt() == total;
         last = current;
         const auto path = event[2].toString();
-        if (path.endsWith("/SKILL.md")) skillPaths.insert(path);
+        if (expectedSkillPaths.contains(path)) skillPaths.insert(path);
     }
     check(ordered && events.first()[0].toInt() == 0 && last == total && finalStateSaved,
           "progress is monotonic and reaches 100 only after journal save");
-    check(skillPaths.size() == allSkills().size(), "progress includes every bundled skill");
+    check(skillPaths == expectedSkillPaths, "progress includes every top-level bundled skill");
     events.clear();
     check(!controller.install("codex", fixtureRoot + "/missing.md") && starts == 2 && finishes == 2 && errors == 1 &&
           !progress->isVisible() && events.isEmpty(), "failure closes progress and never reports completion");
@@ -919,7 +1217,18 @@ static void vscodeUiTests(const QString& root, const std::function<void(bool, co
     Injector::setProgressCallback({});
 }
 
+static void skillAssetTests(const std::function<void(bool, const char*)>& check) {
+    check(Skills::missingBundledAssets("fixture-missing-assets") ==
+              QStringList{"references/missing.md", "scripts/missing.js"},
+          "asset audit detects missing local links and commands without repository-root false positives");
+    for (const auto& skill : allSkills()) {
+        const auto missing = Skills::missingBundledAssets(skill.dirName);
+        check(missing.isEmpty(), qPrintable(skill.dirName + " bundles every referenced companion: " + missing.join(", ")));
+    }
+}
+
 static void featureTests(const QString& root, const std::function<void(bool, const char*)>& check) {
+    skillAssetTests(check);
     detectionRefreshTests(root, check);
     selectFixture(root, "update-lifecycle");
     {
@@ -971,8 +1280,44 @@ static void featureTests(const QString& root, const std::function<void(bool, con
           "package installs script bytes without executing them");
     check(Skills::missingBundledAssets("radare2").isEmpty(),
           "bundled skill audit confirms radare2 companion assets");
-    check(Skills::missingBundledAssets("rea-analysis-optimization").contains("references/kuna-case-study.md"),
-          "bundled skill audit exposes genuinely missing references");
+    const QString restoredReference = skillsRoot + "/rea-analysis-optimization/references/kuna-case-study.md";
+    const QString restoredScript = skillsRoot + "/web-security/scripts/owasp_scanner.py";
+    check(!Injector::readFile(restoredReference).isEmpty() &&
+          Injector::readFile(restoredReference) == Injector::readFile(":/skills/rea-analysis-optimization/references/kuna-case-study.md") &&
+          !Injector::readFile(restoredScript).isEmpty() &&
+          Injector::readFile(restoredScript) == Injector::readFile(":/skills/web-security/scripts/owasp_scanner.py"),
+          "restored upstream references and scripts deploy byte for byte");
+    check(QFile::remove(restoredReference) && !Skills::intact("claude", names),
+          "a missing installed companion still requires repair");
+    const auto damagedStatuses = Skills::statuses();
+    check(std::any_of(damagedStatuses.cbegin(), damagedStatuses.cend(), [](const SkillStatus& status) {
+        return status.dirName == "rea-analysis-optimization" && status.installedCount == 1 &&
+               status.needsRepair && status.missingAssets.isEmpty();
+    }), "skill manager distinguishes damaged local deployment from complete bundled resources");
+    put(restoredReference, Injector::readFile(":/skills/rea-analysis-optimization/references/kuna-case-study.md"));
+    const QString referenceManifest = stateDir() + "/claude-skills-backups/" +
+        QString::fromLatin1(QByteArray("rea-analysis-optimization").toBase64(QByteArray::Base64UrlEncoding)) + ".files.json";
+    const auto currentReferenceManifest = Injector::readFile(referenceManifest);
+    put(referenceManifest, "{\"version\":1,\"files\":[\"SKILL.md\"]}");
+    check(!Skills::intact("claude", names),
+          "old manifests missing newly bundled companions require repair even when files were copied manually");
+    bool upgradedManifest = false;
+    Skills::installInto("claude", skillsRoot, &upgradedManifest);
+    check(upgradedManifest && Injector::readFile(referenceManifest) == currentReferenceManifest &&
+          Skills::intact("claude", names), "reinstall upgrades old entry-only manifests and preserves existing restoration stamps");
+    const QString unchangedName = "rea-changelog-update";
+    const QString unchangedStamp = stateDir() + "/claude-skills-backups/" +
+        QString::fromLatin1(unchangedName.toUtf8().toBase64(QByteArray::Base64UrlEncoding)) + ".sha256";
+    const QString unchangedPath = skillsRoot + '/' + unchangedName + "/SKILL.md";
+    const auto currentBytes = Injector::readFile(unchangedPath);
+    const QByteArray previousBytes = "Previously shipped skill body.\n";
+    put(unchangedPath, previousBytes);
+    put(unchangedStamp, QCryptographicHash::hash(previousBytes, QCryptographicHash::Sha256).toHex());
+    check(!Skills::intact("claude", names), "same-path content revisions require package refresh");
+    bool refreshed = false;
+    Skills::installInto("claude", skillsRoot, &refreshed);
+    check(refreshed && Injector::readFile(unchangedPath) == currentBytes && Skills::intact("claude", names),
+          "reinstall refreshes unchanged paths from their recorded older release without treating them as user edits");
     check(Skills::transactionFiles("claude", skillsRoot, {name}).contains(reference),
           "outer transaction captures companion files");
     bool reinstalled = false;
@@ -1021,11 +1366,19 @@ static void featureTests(const QString& root, const std::function<void(bool, con
     put(legacyPackage + "/assets/sample.csv", companion);
     put(stateDir() + "/claude-skills.dat", name.toUtf8() + '\n');
     put(stateDir() + "/claude-skills-root.dat", legacyRoot.toUtf8());
+    check(!Skills::intact("claude", {name}), "legacy entry-only installs require companion deployment");
     const auto upgraded = Skills::installInto("claude", legacyRoot, &installed);
     Skills::removeFrom(legacyRoot, upgraded, "claude", &removed);
     check(installed && removed && !QFileInfo::exists(legacyPackage + "/SKILL.md") &&
           Injector::readFile(legacyPackage + "/assets/sample.csv") == companion,
           "legacy upgrade owns only old SKILL.md and backs up preexisting companions");
+
+    selectFixture(root, "unmanaged-same-name");
+    put(homeDir() + "/.claude/skills/" + name + "/SKILL.md", "Personal skill with an independently chosen layout.\n");
+    const auto personalStatuses = Skills::statuses();
+    check(std::any_of(personalStatuses.cbegin(), personalStatuses.cend(), [&](const SkillStatus& status) {
+        return status.dirName == name && status.installedCount == 1 && !status.needsRepair;
+    }), "independent same-name user skills are counted without enforcing Ua package ownership or repair");
 
     selectFixture(root, "activation");
 #ifdef Q_OS_UNIX
@@ -1122,6 +1475,31 @@ static void reliabilityTests(const QString& root, const std::function<void(bool,
     check(scanInstall && removedSkill && Injector::scan("codex") == InstallState::NeedsRepair,
           "missing installed skill marks the installation for repair");
     put(missingSkill, skillBytes);
+    const QString manifestOnly = stateDir() + "/codex-skills-backups/" +
+        QString::fromLatin1(name.toUtf8().toBase64(QByteArray::Base64UrlEncoding)) + ".files.json";
+    put(manifestOnly, "{\"version\":1,\"files\":[\"SKILL.md\"]}");
+    check(Injector::scan("codex") == InstallState::NeedsRepair &&
+          Injector::install("codex", fixtureRoot + "/prompt.md").ok &&
+          Injector::scan("codex") == InstallState::Installed,
+          "real install flow repairs an old manifest with existing stamps and returns the tool to installed");
+    const QString retired = "retired-upgrade-fixture";
+    const QString retiredPath = Skills::installedRoot("codex") + '/' + retired + "/SKILL.md";
+    const QString retiredMeta = stateDir() + "/codex-skills-backups/" +
+        QString::fromLatin1(retired.toUtf8().toBase64(QByteArray::Base64UrlEncoding));
+    const QByteArray retiredBytes = "Previously installed retired skill.\n";
+    put(retiredPath, retiredBytes);
+    put(retiredMeta + ".orig", "Original user skill before Ua.\n");
+    put(retiredMeta + ".sha256", QCryptographicHash::hash(retiredBytes, QCryptographicHash::Sha256).toHex());
+    put(stateDir() + "/codex-skills.dat", Injector::readFile(stateDir() + "/codex-skills.dat") + retired.toUtf8() + '\n');
+    ItemState retiredState;
+    const bool retiredStateLoaded = Injector::loadState("codex", retiredState);
+    retiredState.skills << retired;
+    check(retiredStateLoaded && Injector::saveState("codex", retiredState) && Injector::scan("codex") == InstallState::NeedsRepair &&
+          Injector::install("codex", fixtureRoot + "/prompt.md").ok &&
+          !Skills::installedNames("codex").contains(retired) &&
+          Injector::readFile(retiredPath) == "Original user skill before Ua.\n" &&
+          Injector::scan("codex") == InstallState::Installed,
+          "same-root upgrades retire removed owned packages transactionally and restore original user content");
     const bool removedMarked = QFile::remove(homeDir() + "/.codex/AGENTS.md");
     const bool removedManaged = QFile::remove(homeDir() + "/.codex/managed-prompts/Ua.md");
     check(removedMarked && removedManaged && Injector::scan("codex") == InstallState::NeedsRepair,
@@ -1196,6 +1574,12 @@ int main(int argc, char** argv) {
         return failures == 0 ? 0 : 1;
     }
 
+    if (app.arguments().contains("--skill-discovery-only")) {
+        skillDiscoveryTests(temp.path(), check);
+        out << checks << " checks, " << failures << " failures\n";
+        return failures == 0 ? 0 : 1;
+    }
+
     if (app.arguments().contains("--detection-refresh-only")) {
         detectionRefreshTests(temp.path(), check);
         out << checks << " checks, " << failures << " failures\n";
@@ -1216,6 +1600,12 @@ int main(int argc, char** argv) {
 
     if (app.arguments().contains("--features-only")) {
         featureTests(temp.path(), check);
+        out << checks << " checks, " << failures << " failures\n";
+        return failures == 0 ? 0 : 1;
+    }
+
+    if (app.arguments().contains("--skill-assets-only")) {
+        skillAssetTests(check);
         out << checks << " checks, " << failures << " failures\n";
         return failures == 0 ? 0 : 1;
     }

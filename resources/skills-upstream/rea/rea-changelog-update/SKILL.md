@@ -10,6 +10,11 @@ Use this for release-note preparation and contributor attribution. Read
 publication authority and the existing checkpoint checks. This skill prepares
 notes; it does not authorize merging, tagging, or publishing.
 
+Set `REA_REPOSITORY` to the root of a full REA checkout with its dependencies
+installed, and run the commands below from that root. The release-notes script
+depends on that checkout's script libraries and package dependencies; it is a
+repository dependency, not a bundled skill asset.
+
 ## Inventory before prose
 
 Fetch complete history and tags. Select the published baseline tag from
@@ -19,11 +24,11 @@ Use the proposed version, including its prerelease suffix; do not change the
 `always-bump-minor` strategy to imitate OpenClaw's calendar versions.
 
 ```bash
-node scripts/release-notes.mjs inventory \
+node "${REA_REPOSITORY}/scripts/release-notes.mjs" inventory \
   --repository morluto/rea --base rea-agents-PREVIOUS \
   --target FULL_BASE_BRANCH_SHA --version VERSION \
   --manifest /tmp/rea-VERSION.contributions.json
-node scripts/release-notes.mjs record \
+node "${REA_REPOSITORY}/scripts/release-notes.mjs" record \
   --manifest /tmp/rea-VERSION.contributions.json \
   --summary \
   --output /tmp/rea-VERSION.record.md
@@ -101,9 +106,9 @@ Local preparation and validation can proceed independently.
 3. Run the existing checkpoint validator and the new checker:
 
    ```bash
-   node scripts/release-notes.mjs check \
+   node "${REA_REPOSITORY}/scripts/release-notes.mjs" check \
      --manifest docs/releases/VERSION.contributions.json
-   node scripts/release-notes.mjs render \
+   node "${REA_REPOSITORY}/scripts/release-notes.mjs" render \
      --manifest docs/releases/VERSION.contributions.json \
      --output /tmp/rea-VERSION.notes.md
    ```

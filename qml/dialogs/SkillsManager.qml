@@ -218,9 +218,11 @@ Item {
                     spacing: 4
 
                     Text {
+                        objectName: "skillAssetStatus"
                         anchors.verticalCenter: parent.verticalCenter
-                        visible: modelData.missingAssets && modelData.missingAssets.length > 0
-                        text: (Strings.lang, Strings.t(Strings.SkillAssetsMissing))
+                        visible: (modelData.missingAssets && modelData.missingAssets.length > 0) || !!modelData.needsRepair
+                        text: (Strings.lang, Strings.t(modelData.missingAssets && modelData.missingAssets.length > 0
+                                                       ? Strings.SkillAssetsMissing : Strings.SkillNeedsRepair))
                         color: Theme.dark ? "#F7B267" : "#A44A12"
                         font.pixelSize: 10
                     }
@@ -280,8 +282,9 @@ Item {
                 }
                 ToolTip {
                     id: missingTip
-                    visible: hoverMa.containsMouse && modelData.missingAssets && modelData.missingAssets.length > 0
-                    text: modelData.missingAssets ? modelData.missingAssets.join("\n") : ""
+                    visible: hoverMa.containsMouse && ((modelData.missingAssets && modelData.missingAssets.length > 0) || !!modelData.needsRepair)
+                    text: (Strings.lang, modelData.missingAssets && modelData.missingAssets.length > 0
+                           ? modelData.missingAssets.join("\n") : Strings.t(Strings.NeedsRepair))
                     delay: 400
                     width: Math.min(320, root.width - 32)
                     contentItem: Text {

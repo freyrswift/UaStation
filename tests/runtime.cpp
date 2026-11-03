@@ -532,6 +532,31 @@ int main(int argc, char** argv) {
     check(managerItem && skillName && skillStatus && skillName->width() > 0 &&
           skillName->x() + skillName->width() <= skillStatus->x(),
           "long skill names leave room for installed count and missing-asset status");
+    for (int language : {int(Strings::CN), int(Strings::EN)}) {
+        Strings::instance()->setLang(language);
+        for (bool missing : {true, false}) {
+            const QVariantList skills{QVariantMap{{"dirName", "an-extremely-long-skill-name-for-layout-checks"},
+                {"installedCount", 1}, {"category", 1}, {"needsRepair", true},
+                {"missingAssets", missing ? QStringList{"references/missing.md"} : QStringList{}}}};
+            if (managerRoot) managerRoot->setProperty("allSkills", skills);
+            const auto expected = Strings::instance()->get(missing ? Strings::SkillAssetsMissing : Strings::SkillNeedsRepair);
+            settle([&] {
+                const auto* label = findVisual(window.contentItem(), "skillAssetStatus");
+                return !label || label->property("text").toString() != expected;
+            });
+            const auto* label = findVisual(window.contentItem(), "skillAssetStatus");
+            skillName = findVisual(window.contentItem(), "skillName");
+            skillStatus = findVisual(window.contentItem(), "skillStatus");
+            check(label && label->isVisible() && label->property("text").toString() == expected &&
+                  skillName && skillStatus && skillName->width() > 0 &&
+                  skillName->x() + skillName->width() <= skillStatus->x() &&
+                  skillStatus->x() + skillStatus->width() <= skillStatus->parentItem()->width(),
+                  "localized bundled-missing and deployed-repair labels remain distinct and fit long skill names");
+        }
+    }
+    if (app.arguments().contains("--skills-screenshot"))
+        check(window.grabWindow().save(UA_SOURCE_DIR "/build/skills-repair-2.2.4.png"),
+              "skill repair status screenshot saved");
     if (managerItem) managerItem->setParentItem(nullptr);
 
     NoticeUiFixture noticeContext;

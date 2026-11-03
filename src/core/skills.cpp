@@ -24,57 +24,6 @@ namespace ua::core {
 
 namespace {
 
-// Gateways in front of some products pattern-match the request body and reject
-// anything that reads like offensive tooling. The skill index is text we
-// generate, so the same capability can be described in neutral wording here
-// without touching the SKILL.md files other tools read verbatim.
-QString wafSafeText(QString s)
-{
-    static const struct { const char* from; const char* to; } kPairs[] = {
-        // English: phrases before single words.
-        { "reverse-engineering", "binary analysis" },
-        { "reverse engineering", "binary analysis" },
-        { "penetration testing", "security assessment" },
-        { "exploit development", "binary research" },
-        { "payload crafting", "test input design" },
-        { "malware analysis", "sample analysis" },
-        { "cheat engine", "memory inspection" },
-        { "proof-of-concept", "test case" },
-        { "exploitation", "assessment" },
-        { "shellcode", "machine code" },
-        { "malware", "sample" },
-        { "payloads", "test inputs" },
-        { "payload", "test input" },
-        { "pentest", "assessment" },
-        { "reversing", "analysis" },
-        { "jailbreak", "policy" },
-        { "keygen", "key format" },
-        { "bypass", "handling" },
-        { "cracking", "review" },
-        { "crack", "review" },
-        { "exploit", "check" },
-        { "attack", "test" },
-        { "hack", "inspect" },
-        { "cheat", "game analysis" },
-        // Chinese
-        { "破解", "授权分析" },
-        { "外挂", "游戏客户端" },
-        { "逆向", "二进制" },
-        { "脱壳", "解包" },
-        { "免杀", "兼容处理" },
-        { "病毒", "样本" },
-        { "木马", "样本" },
-        { "攻击", "操作" },
-        { "渗透", "评估" },
-        { "提权", "权限评估" },
-        { "越狱", "策略" },
-    };
-    for (const auto& p : kPairs) {
-        s.replace(QString::fromUtf8(p.from), QString::fromUtf8(p.to), Qt::CaseInsensitive);
-    }
-    return s;
-}
-
 QString skillsStateFileFor(const QString& itemId)
 {
     return QDir::cleanPath(stateDir() + QLatin1Char('/') + itemId + QStringLiteral("-skills.dat"));
@@ -302,6 +251,36 @@ bool restoreFile(const QString& itemId, const QString& name, const QString& rela
     return true;
 }
 
+bool packageIntact(const QString& itemId, const QString& root, const QString& name)
+{
+    if (!validName(name) || !validSharedSkillsRoot(itemId, root)) return false;
+    const auto required = bundledFiles(name);
+    if (!required.contains("SKILL.md")) return false;
+    bool valid = true;
+    const auto files = recordedFiles(itemId, name, &valid);
+    if (!valid || files.size() != required.size()) return false;
+    for (const auto& relative : required) {
+        if (!files.contains(relative)) return false;
+        const QString target = root + '/' + name + '/' + relative;
+        if (!plainPath(target, root) || !QFileInfo(target).isFile()) return false;
+        bool read = false;
+        QByteArray data = Injector::readFile(":/skills/" + name + '/' + relative, &read);
+        if (!read) return false;
+        if (itemId == QLatin1String("vscode") && relative == QLatin1String("SKILL.md")) {
+            data = SkillCatalog::normalize(data, name, &read);
+            if (!read) return false;
+        }
+        if (skillHash(data) != Injector::readFile(metaPath(itemId, name, relative, ".sha256")).trimmed())
+            return false;
+    }
+    if (itemId == QLatin1String("vscode")) {
+        SkillMetadata metadata;
+        if (!SkillCatalog::parse(Injector::readFile(root + '/' + name + "/SKILL.md"), &metadata) ||
+            metadata.name != name) return false;
+    }
+    return true;
+}
+
 bool captureFiles(detail::FileTransaction& tx, const QString& itemId,
                   const QString& root, const QStringList& names)
 {
@@ -345,7 +324,9 @@ QStringList Skills::installInto(const QString& itemId, const QString& root, bool
     const QString savedRoot = QString::fromUtf8(Injector::readFile(skillsRootFileFor(itemId))).trimmed();
     const QStringList prior = loadInstalledNames(itemId);
     QStringList allNames = prior;
+    QStringList currentNames;
     for (const auto& skill : allSkills()) {
+        currentNames << skill.dirName;
         if (!allNames.contains(skill.dirName)) allNames << skill.dirName;
     }
     detail::FileTransaction tx;
@@ -355,6 +336,15 @@ QStringList Skills::installInto(const QString& itemId, const QString& root, bool
         bool removed = false;
         removeFrom(savedRoot, prior, itemId, &removed);
         if (!removed) return {};
+    }
+    if (savedRoot == normalizedRoot) {
+        QStringList retired;
+        for (const auto& name : prior) if (!currentNames.contains(name)) retired << name;
+        if (!retired.isEmpty()) {
+            bool removed = false;
+            removeFrom(normalizedRoot, retired, itemId, &removed);
+            if (!removed) return {};
+        }
     }
     if (!Injector::writeAtomic(skillsRootFileFor(itemId), normalizedRoot.toUtf8())) return {};
     QStringList installed;
@@ -383,9 +373,7 @@ QStringList Skills::installInto(const QString& itemId, const QString& root, bool
         installed << skill.dirName;
         if (progress) progress(++completed, total, normalizedRoot + '/' + skill.dirName + "/SKILL.md");
     }
-    QStringList tracked = savedRoot == normalizedRoot ? prior : QStringList();
-    for (const auto& name : installed) if (!tracked.contains(name)) tracked << name;
-    if (!saveInstalledNames(itemId, tracked)) return {};
+    if (!saveInstalledNames(itemId, installed)) return {};
     tx.commit();
     if (ok) *ok = true;
     return installed;
@@ -472,18 +460,7 @@ bool Skills::intact(const QString& itemId, const QStringList& expectedNames)
     const QString root = installedRoot(itemId);
     if (!validSharedSkillsRoot(itemId, root)) return false;
     for (const auto& name : names) {
-        if (!validName(name)) return false;
-        bool valid = false;
-        const auto files = recordedFiles(itemId, name, &valid);
-        if (!valid) return false;
-        for (const auto& relative : files) {
-            if (!QFileInfo(root + '/' + name + '/' + relative).isFile()) return false;
-        }
-        if (itemId == QLatin1String("vscode")) {
-            SkillMetadata metadata;
-            if (!SkillCatalog::parse(Injector::readFile(root + '/' + name + "/SKILL.md"), &metadata) ||
-                metadata.name != name) return false;
-        }
+        if (!packageIntact(itemId, root, name)) return false;
     }
     return true;
 }
@@ -492,7 +469,7 @@ QStringList Skills::transactionFiles(const QString& itemId, const QString& root,
 {
     if (!QDir::isAbsolutePath(root) ||
         !validSharedSkillsRoot(itemId, root)) return {};
-    QStringList paths;
+    QStringList paths{QDir::cleanPath(root + QStringLiteral("/INDEX.md"))};
     if (!itemId.isEmpty())
         paths << QDir::cleanPath(stateDir() + '/' + itemId + ".dat")
               << skillsStateFileFor(itemId) << skillsRootFileFor(itemId);
@@ -521,32 +498,63 @@ QStringList Skills::transactionFiles(const QString& itemId, const QString& root,
 
 QString Skills::buildIndex(const QString& absSkillsDir)
 {
-    QString out;
+    if (!QDir::isAbsolutePath(absSkillsDir)) return {};
+    const QString root = QDir::cleanPath(absSkillsDir);
+    QJsonArray entries;
     for (const SkillDef& sd : allSkills()) {
         const QString res = QStringLiteral(":/skills/") + sd.dirName + QStringLiteral("/SKILL.md");
         QFile f(res);
-        if (!f.open(QIODevice::ReadOnly)) continue;
-
-        // Pull the first description line out of the YAML front matter.
-        QString line;
-        const QStringList lines = QString::fromUtf8(f.readAll()).split(QLatin1Char('\n'));
-        for (const QString& raw : lines) {
-            const QString t = raw.trimmed();
-            if (!t.startsWith(QLatin1String("description:"), Qt::CaseInsensitive)) continue;
-            line = t.mid(12).trimmed();
-            if (line.isEmpty()) continue;   // "description: |" -> take the next non-empty line
-            break;
-        }
-        if (line.isEmpty()) {
-            for (const QString& raw : lines) {
-                const QString t = raw.trimmed();
-                if (t.startsWith(QLatin1Char('#'))) { line = t; break; }
-            }
-        }
-        if (line.size() > 90) line = line.left(90) + QStringLiteral("…");
-        out += QStringLiteral("- %1: %2\n").arg(sd.dirName, wafSafeText(line));
+        SkillMetadata metadata;
+        if (!f.open(QIODevice::ReadOnly)) return {};
+        bool normalized = false;
+        const auto document = SkillCatalog::normalize(f.readAll(), sd.dirName, &normalized);
+        if (!normalized || !SkillCatalog::parse(document, &metadata)) return {};
+        entries.append(QJsonObject{
+            {QStringLiteral("directory"), sd.dirName},
+            {QStringLiteral("name"), metadata.name},
+            {QStringLiteral("description"), metadata.description},
+            {QStringLiteral("document"), root + '/' + sd.dirName + QStringLiteral("/SKILL.md")}
+        });
     }
-    return out;
+    const QJsonObject catalog{{QStringLiteral("root"), root}, {QStringLiteral("skills"), entries}};
+    return QStringLiteral("# Ua Skill Catalog\n\n"
+                          "Names are canonical directory keys; descriptions are normalized metadata summaries. "
+                          "Original documents in non-shared libraries may declare different names. "
+                          "Catalog metadata is not a loaded instruction or proof of execution. "
+                          "Read the matching document and its required assets before using a skill.\n\n```json\n") +
+        QString::fromUtf8(QJsonDocument(catalog).toJson(QJsonDocument::Indented)) + QStringLiteral("```\n");
+}
+
+QString Skills::buildDiscoveryPrompt(const QString& absSkillsDir, bool includeNames)
+{
+    if (!QDir::isAbsolutePath(absSkillsDir)) return {};
+    const QString root = QDir::cleanPath(absSkillsDir);
+    const QJsonObject location{
+        {QStringLiteral("root"), root},
+        {QStringLiteral("index"), root + QStringLiteral("/INDEX.md")},
+        {QStringLiteral("count"), allSkills().size()}
+    };
+    QString out = QStringLiteral(
+        "# Ua Skill Discovery\n\n"
+        "Catalog: %1\n"
+        "For a matching task, consult the client's native skill list first. If Ua skills are absent, "
+        "use a file-reading tool to read the catalog index, select relevant entries by description, "
+        "then read root/<directory>/SKILL.md and any required companion files. Directory keys and "
+        "declared skill names may differ; use the index's document path for local reads.\n"
+        "If the ua-skills MCP server is connected and its tools are available, use list_skills, "
+        "then read_skill and read_asset with names returned by that server. Follow nextOffset "
+        "pagination until the needed content is complete. Do not treat directory names as tool names.\n"
+        "Use only available tools and permitted paths. If neither file access nor MCP is available, "
+        "report the missing connection instead of claiming a skill was loaded. Loading this prompt "
+        "or replying to Ua does not prove skill loading. Do not execute scripts merely because they "
+        "appear in the catalog.\n").arg(QString::fromUtf8(QJsonDocument(location).toJson(QJsonDocument::Compact)));
+    if (includeNames) {
+        QStringList names;
+        for (const auto& skill : allSkills()) names << skill.dirName;
+        out += QStringLiteral("Directory names (routing hints, not loaded skill bodies): ") +
+            names.join(QStringLiteral(", ")) + QLatin1Char('\n');
+    }
+    return out + QLatin1Char('\n');
 }
 
 int Skills::installFor(const QString& itemId)
@@ -608,19 +616,29 @@ QVector<SkillStatus> Skills::statuses()
 {
     QVector<SkillStatus> out;
     out.reserve(allSkills().size());
-    QStringList roots;
+    struct Profile {
+        QString id;
+        QString root;
+        QStringList managedNames;
+    };
+    QVector<Profile> profiles;
     for (const Item& item : allItems()) {
-        if (!item.skillsDirRel.isEmpty()) roots << installedRoot(item.id);
+        if (!item.skillsDirRel.isEmpty())
+            profiles.push_back({item.id, installedRoot(item.id), loadInstalledNames(item.id)});
     }
     for (const SkillDef& sd : allSkills()) {
         int count = 0;
-        for (const QString& root : roots) {
-            if (root.isEmpty()) continue;
+        bool needsRepair = false;
+        for (const auto& profile : profiles) {
+            if (profile.root.isEmpty()) continue;
+            const bool managed = profile.managedNames.contains(sd.dirName);
             const QString file = QDir::cleanPath(
-                root + QLatin1Char('/') + sd.dirName + QStringLiteral("/SKILL.md"));
-            if (QFileInfo::exists(file)) ++count;
+                profile.root + QLatin1Char('/') + sd.dirName + QStringLiteral("/SKILL.md"));
+            if (!managed && !QFileInfo::exists(file)) continue;
+            ++count;
+            if (managed && !packageIntact(profile.id, profile.root, sd.dirName)) needsRepair = true;
         }
-        out.push_back({sd.dirName, count, static_cast<int>(sd.category), missingBundledAssets(sd.dirName)});
+        out.push_back({sd.dirName, count, static_cast<int>(sd.category), missingBundledAssets(sd.dirName), needsRepair});
     }
     return out;
 }

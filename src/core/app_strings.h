@@ -73,6 +73,7 @@ public:
         UpdateTitle, UpdateApplying, UpdateWaitingForTask, UpdateRestartNotice,
         UpdateFailedTitle, UpdateRetry, UpdateLater, UpdateReleasePage, UpdateVersionLine,
         UpdateReadyManual, UpdateManualInstallNotice,
+        SkillNeedsRepair,
         _Count,
     };
     Q_ENUM(StringId)

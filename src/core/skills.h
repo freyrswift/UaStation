@@ -14,6 +14,7 @@ struct SkillStatus {
     int     installedCount; // Across how many AI tools
     int     category;       // SkillCategory enum value
     QStringList missingAssets; // Local references mentioned by SKILL.md but absent from the bundle
+    bool needsRepair = false; // A deployed package is missing files or predates this bundle
 };
 
 class Skills
@@ -42,9 +43,9 @@ public:
     static QStringList missingBundledAssets(const QString& skillDirName);
     static QStringList transactionFiles(const QString& itemId, const QString& root, const QStringList& names);
 
-    // Compact "name: what it is for" list of the shipped skills, for products
-    // that do not advertise skills to the model themselves.
+    // Names, descriptions and document locations from the shipped metadata.
     static QString buildIndex(const QString& absSkillsDir);
+    static QString buildDiscoveryPrompt(const QString& absSkillsDir, bool includeNames = true);
 
     // Remove skills we previously installed (recorded in configDir/state/<id>-skills.dat).
     static int uninstallFor(const QString& itemId);

@@ -28,20 +28,30 @@ changes both the Codex instruction/configuration files and its skills directory.
 | DeepSeek Harness | `DSH_HOME` | `~/.dsh` | `AGENTS.md`, `skills/`; `prompt-inject.md` only when `plugins/dsh-purge/` exists |
 | Codex | `CODEX_HOME`, `CODEX_DIR` | `~/.codex` | `AGENTS.md`, `managed-prompts/Ua.md`, `config.toml`, `skills/` |
 | Cursor | `CURSOR_HOME` | `~/.cursor` for skills; rule-directory probing below | `rules/Ua.mdc`, `skills/` |
-| Devin Desktop / Windsurf | `DEVIN_HOME`, `WINDSURF_HOME` | `~/.codeium/windsurf` | `memories/global_rules.md`; no skills target |
+| Devin Desktop / Windsurf | `DEVIN_HOME`, `WINDSURF_HOME` | `~/.codeium/windsurf` | `memories/global_rules.md`, `skills/` |
 | ZCode | `ZCODE_HOME`, `GLM_HOME`, `ZHIPU_HOME` | `~/.zcode` | `AGENTS.md`, `cli/memories/global/memory/MEMORY.md`, `skills/` |
 | OpenCode | `OPENCODE_HOME` | `~/.config/opencode` | `AGENTS.md`, `skills/` |
 | WorkBuddy | `WORKBUDDY_CONFIG_DIR`, `WORKBUDDY_HOME` | `~/.workbuddy`, with legacy fallback below | `SOUL.md`, `MEMORY.md`, account/personal memory targets, `skills/`, settings and configuration targets |
-| Gemini CLI | `GEMINI_HOME`, `GEMINI_DIR` | `~/.gemini` | `GEMINI.md`; no skills target |
-| Qwen Code | `QWEN_HOME` | `~/.qwen` | `QWEN.md`; no skills target |
-| Trae | `TRAE_HOME` | `~/.trae` | `rules/project_rules.md`; no skills target |
-| CodeBuddy | `CODEBUDDY_HOME` | `~/.codebuddy` | `CODEBUDDY.md`; no skills target |
-| Cline | `CLINE_HOME` | `~/Documents/Cline` | `Rules/Ua.md`; no skills target |
-| Copilot CLI | `COPILOT_HOME` | `~/.copilot` | `copilot-instructions.md`; no skills target |
+| Gemini CLI | `GEMINI_HOME`, `GEMINI_DIR` | `~/.gemini` | `GEMINI.md`, `skills/` |
+| Qwen Code | `QWEN_HOME` | `~/.qwen` | `QWEN.md`, `skills/` |
+| Trae | `TRAE_HOME` | `~/.trae` | `rules/project_rules.md`, `skills/` |
+| CodeBuddy | `CODEBUDDY_HOME` | `~/.codebuddy` | `CODEBUDDY.md`, `skills/` |
+| Cline | `CLINE_HOME` | `~/Documents/Cline` | `Rules/Ua.md`, `skills/` |
+| Copilot CLI | `COPILOT_HOME` | `~/.copilot` | `copilot-instructions.md`, `skills/` |
 | Visual Studio Code | `VSCODE_COPILOT_HOME` | `~/.copilot` | `instructions/Ua.instructions.md`; shared skills are separate |
 | Grok | `GROK_HOME`, `GROK_DIR` | `~/.grok` | `AGENTS.md`, `skills/` |
 | MiniMax / mimocode | `MIMOCODE_HOME` | `~/.config/mimocode` | `AGENTS.md`, `skills/` |
 | Kimi | `KIMI_CODE_HOME` | `~/.kimi-code` | `AGENTS.md`, `skills/` |
+
+All 19 Ua profiles define a skills-deployment target. When the installation
+target resolves, Ua deploys the profile's library and generates `INDEX.md` at its
+root. Doubao's separate target-resolution requirements are described below.
+The seven newly added libraries use `~/.codeium/windsurf/skills`,
+`~/.gemini/skills`, `~/.qwen/skills`, `~/.trae/skills`, `~/.codebuddy/skills`,
+`~/Documents/Cline/skills`, and `~/.copilot/skills` by default. Their configuration
+root overrides also relocate their libraries and indexes; all other existing
+roots remain unchanged. These are Ua deployment destinations, not a guarantee
+that each client supports native skill discovery.
 
 Ua normalizes backslashes, expands `~` or a leading `~/`, cleans the path, and
 makes relative overrides absolute against Ua's working directory. Prefer
@@ -82,8 +92,23 @@ them before Ua receives them.
 
 `COPILOT_HOME` applies to the **Copilot CLI** card, not the Visual Studio Code
 card. Similarly, `CODEX_HOME` affects Codex's own profile, not the shared skills
-library. Other clients retain their separate profiles; see
-[shared skills](shared-skills.md) for native discovery and MCP access.
+library. Visual Studio Code remains the sole owner of that fixed shared library,
+including its generated `INDEX.md`; other clients use their separate libraries.
+
+Each installed prompt copy includes a `# Ua Skill Discovery` block with compact
+JSON fields `root`, `index`, and `count` identifying its resolved library root,
+index path, and skill count. Discovery prefers native skill metadata, then the
+local index and matching skill files, or configured and available MCP tools.
+Each index catalog uses the canonical directory name as its `name`, a normalized
+summary description capped at 1024 characters, and the actual absolute `SKILL.md`
+document path. This catalog metadata is distinct from a deployed non-shared
+`SKILL.md`'s declared Front Matter name, which may differ because that file is
+kept verbatim. All 134 exact skill directory names and their catalog summaries
+remain in each index even when prompt length limits omit the optional inline list.
+This guidance neither grants file access nor guarantees model use. Plain chat
+requires suitable client capabilities and configuration; remote sessions need
+paths and services accessible from their execution environment. See
+[shared skills](shared-skills.md) for discovery order, prompt limits, and MCP access.
 
 ### Editor discovery precedence
 

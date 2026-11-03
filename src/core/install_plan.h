@@ -38,7 +38,7 @@ struct InstallPlan {
     QString appConfig;        // absolute app-config.json whose memory flags we raise
     QString tomlFile;         // absolute config.toml carrying a model_instructions_file pointer
     QString pointerTarget;    // absolute file the pointer must reference
-    bool    injectSkillIndex = false;  // product does not advertise skills itself
+    bool    injectSkillIndex = true;   // also supports file-based discovery without native skills
     int     maxChars = 0;     // per-target cap (0 = no cap)
     QStringList cacheFiles;   // runtime caches to delete after install/uninstall
 

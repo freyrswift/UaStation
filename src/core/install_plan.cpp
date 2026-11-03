@@ -325,7 +325,6 @@ InstallPlan planFor(const Item& item)
         plan.skillsDir      = QDir::cleanPath(cfg + QStringLiteral("/skills"));
         plan.skillsSettings = QDir::cleanPath(cfg + QStringLiteral("/settings.json"));
         plan.appConfig      = QDir::cleanPath(cfg + QStringLiteral("/app/app-config.json"));
-        plan.injectSkillIndex = true;   // WorkBuddy leaves discovery to the model
         return plan;
     }
 

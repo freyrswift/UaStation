@@ -620,6 +620,7 @@ QVariantList AppController::skills()
         m[QStringLiteral("installedCount")] = s.installedCount;
         m[QStringLiteral("category")]       = s.category;
         m[QStringLiteral("missingAssets")]  = s.missingAssets;
+        m[QStringLiteral("needsRepair")]    = s.needsRepair;
         out.push_back(m);
     }
     return out;
