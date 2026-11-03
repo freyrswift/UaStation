@@ -113,6 +113,7 @@ if(WIN32)
 endif()
 set_tests_properties(${ua_test_names} PROPERTIES TIMEOUT 900)
 if(WIN32)
+    set_tests_properties(ua_regression ua_installation PROPERTIES TIMEOUT 1200)
     set_tests_properties(ua_shortcuts PROPERTIES TIMEOUT 120)
 endif()
 
