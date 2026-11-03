@@ -149,7 +149,7 @@ Item {
                     DialogButton {
                         objectName: "chooseVscodeLocationButton"
                         visible: root.itemId === "vscode"
-                        width: 92; height: 20
+                        width: 112; height: 20
                         label: Strings.lang === 0 ? "选择程序" : "Locate program"
                         onTriggered: app.chooseVscodeLocation()
                     }
