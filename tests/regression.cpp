@@ -918,16 +918,19 @@ static void progressTests(const QString& root, const std::function<void(bool, co
     events.clear();
     check(!controller.install("codex", fixtureRoot + "/missing.md") && starts == 2 && finishes == 2 && errors == 1 &&
           !progress->isVisible() && events.isEmpty(), "failure closes progress and never reports completion");
-    const auto failing = workbuddyFixture(root, "progress-failure");
-    put(failing.appConfig, "{invalid");
+    selectFixture(root, "progress-codex-failure");
+    const QString codexFailHome = fixtureRoot + "/codex-fail";
+    QDir().mkpath(codexFailHome + "/config.toml");
+    qputenv("CODEX_HOME", codexFailHome.toUtf8());
     events.clear();
-    check(!controller.install("workbuddy", fixtureRoot + "/prompt.md") && !Injector::hasState("workbuddy") &&
+    check(!controller.install("codex", fixtureRoot + "/prompt.md") && !Injector::hasState("codex") &&
           !events.isEmpty() && events.last()[0].toInt() < events.last()[1].toInt(),
           "failure after skills stays below 100 and rolls back");
-    put(failing.appConfig, "{}\n");
+    selectFixture(root, "progress-success");
+    put(homeDir() + "/.codex/config.toml", "model = \"fixture\"\n");
     events.clear();
-    check(controller.install("workbuddy", fixtureRoot + "/prompt.md") && !events.isEmpty() &&
-          events.last()[0].toInt() == events.last()[1].toInt() && Injector::hasState("workbuddy"),
+    check(controller.install("codex", fixtureRoot + "/prompt.md") && !events.isEmpty() &&
+          events.last()[0].toInt() == events.last()[1].toInt() && Injector::hasState("codex"),
           "index and application settings are included in successful progress total");
 
     auto pump = [] {
@@ -2026,7 +2029,8 @@ int main(int argc, char** argv) {
     const auto destinationSettings = QJsonObject{{"skillOverrides", QJsonObject{{name, true}}}};
     const auto destinationApp = QJsonObject{{"generateMemoryEnabled", QJsonValue::Null}};
     put(destination + "/settings.json", QJsonDocument(destinationSettings).toJson());
-    put(destination + "/app/app-config.json", "invalid JSON\n");
+    put(destination + "/app/app-config.json", QJsonDocument(destinationApp).toJson());
+    put(destination + "/skills", "blocks skill migration\n");
     const QByteArray migrationState = Injector::readFile(stateDir() + "/workbuddy.dat");
     const QByteArray installedSettings = Injector::readFile(migrationPlan.skillsSettings);
     check(migrationInstalled && !Injector::install("workbuddy", fixtureRoot + "/prompt.md").ok &&
@@ -2035,7 +2039,7 @@ int main(int argc, char** argv) {
           Skills::installedRoot("workbuddy") == migrationPlan.skillsDir &&
           !QFileInfo::exists(destination + "/skills/INDEX.md"),
           "failed settings migration restores prior root and journal");
-    put(destination + "/app/app-config.json", QJsonDocument(destinationApp).toJson());
+    QFile::remove(destination + "/skills");
     check(Injector::install("workbuddy", fixtureRoot + "/prompt.md").ok &&
           jsonAt(migrationPlan.skillsSettings) == migrationOriginal &&
           jsonAt(migrationPlan.appConfig) == migrationAppOriginal,
