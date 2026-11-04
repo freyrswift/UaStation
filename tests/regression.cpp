@@ -2047,14 +2047,27 @@ int main(int argc, char** argv) {
     const auto invalidJsonPlan = workbuddyFixture(temp.path(), "invalid-json");
     const QByteArray brokenJson = "{not-json\n";
     put(invalidJsonPlan.appConfig, brokenJson);
-    const QByteArray beforeSettings = Injector::readFile(invalidJsonPlan.skillsSettings);
-    check(!Injector::install("workbuddy", fixtureRoot + "/prompt.md").ok &&
+    const bool invalidJsonInstalled = Injector::install("workbuddy", fixtureRoot + "/prompt.md").ok;
+    check(invalidJsonInstalled &&
           Injector::readFile(invalidJsonPlan.appConfig) == brokenJson &&
-          Injector::readFile(invalidJsonPlan.skillsSettings) == beforeSettings &&
-          !Injector::hasState("workbuddy") &&
-          !QFileInfo::exists(invalidJsonPlan.targets.first().path) &&
-          !QFileInfo::exists(invalidJsonPlan.skillsDir + '/' + name + "/SKILL.md"),
-          "invalid JSON fails install and rolls back earlier writes");
+          Injector::hasState("workbuddy") &&
+          QFileInfo::exists(invalidJsonPlan.targets.first().path) &&
+          QFileInfo::exists(invalidJsonPlan.skillsDir + '/' + name + "/SKILL.md") &&
+          Injector::uninstall("workbuddy").ok &&
+          Injector::readFile(invalidJsonPlan.appConfig) == brokenJson,
+          "invalid app-config is left untouched and does not block installation");
+
+    const auto invalidSettingsPlan = workbuddyFixture(temp.path(), "invalid-settings");
+    const QByteArray brokenSettings = "{also-not-json\n";
+    put(invalidSettingsPlan.skillsSettings, brokenSettings);
+    const bool invalidSettingsInstalled =
+        Injector::install("workbuddy", fixtureRoot + "/prompt.md").ok;
+    check(invalidSettingsInstalled &&
+          Injector::readFile(invalidSettingsPlan.skillsSettings) == brokenSettings &&
+          Injector::scan("workbuddy") == InstallState::Installed &&
+          Injector::uninstall("workbuddy").ok &&
+          Injector::readFile(invalidSettingsPlan.skillsSettings) == brokenSettings,
+          "invalid settings.json is skipped without blocking installation");
 
     const auto cachePlan = workbuddyFixture(temp.path(), "cache-rollback");
     check(Injector::install("workbuddy", fixtureRoot + "/prompt.md").ok, "cache fixture install");

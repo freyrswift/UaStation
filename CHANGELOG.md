@@ -1,5 +1,11 @@
 # Changelog
 
+## [2.2.6] - 2026-11-04
+
+### Fixed
+- WorkBuddy 的 `settings.json` / `app-config.json` 不是合法 JSON 或无法更新时，不再以“写入目标文件失败”中断安装：保留原文件并继续安装提示词与技能，同时写入日志
+- 目标文件写入失败提示附带文件名（如 `MEMORY.md`）；node 语法校验失败注明 `node --check` 与文件，便于定位
+
 ## [2.2.5] - 2026-11-04
 
 ### Fixed

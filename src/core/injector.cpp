@@ -503,26 +503,44 @@ bool clearSkillOverrides(const QString& settingsPath, const QStringList& names, 
 {
     if (settingsPath.isEmpty() || names.isEmpty() || !QFileInfo::exists(settingsPath)) return true;
     QJsonObject root;
-    if (!readJsonObject(settingsPath, root)) return false;
+    if (!readJsonObject(settingsPath, root)) {
+        qWarning() << "[inject] settings.json is not valid JSON, leaving it untouched:" << settingsPath;
+        return true;
+    }
     const auto overrides = root.value(QStringLiteral("skillOverrides"));
     if (overrides.isUndefined()) return true;
-    if (!overrides.isObject()) return false;
+    if (!overrides.isObject()) {
+        qWarning() << "[inject] skillOverrides is not an object, leaving settings untouched:" << settingsPath;
+        return true;
+    }
     QVector<SettingRecord> changes;
     for (const auto& name : names)
         changes.push_back({settingsPath, {QStringLiteral("skillOverrides"), name}});
-    return patchSettings(settingsPath, root, changes, state);
+    if (!patchSettings(settingsPath, root, changes, state)) {
+        qWarning() << "[inject] cannot update skillOverrides, leaving settings untouched:" << settingsPath;
+        return true;
+    }
+    return true;
 }
 
 // The memory chain is off by default; without these two flags WorkBuddy never
-// touches the archives we just wrote.
+// touches the archives we just wrote. Both settings files belong to the host:
+// when they are malformed or locked we leave them alone and keep installing
+// the prompt and skills instead of failing the whole operation.
 bool enableWorkbuddyMemory(const QString& cfgPath, ItemState& state)
 {
     if (cfgPath.isEmpty() || !QFileInfo::exists(cfgPath)) return true;
     QJsonObject root;
-    if (!readJsonObject(cfgPath, root)) return false;
-    return patchSettings(cfgPath, root,
+    if (!readJsonObject(cfgPath, root)) {
+        qWarning() << "[inject] app-config.json is not valid JSON, skipping memory flags:" << cfgPath;
+        return true;
+    }
+    if (!patchSettings(cfgPath, root,
         {{cfgPath, {QStringLiteral("generateMemoryEnabled")}, QJsonValue::Undefined, true},
-         {cfgPath, {QStringLiteral("localMemoryEnabled")}, QJsonValue::Undefined, true}}, state);
+         {cfgPath, {QStringLiteral("localMemoryEnabled")}, QJsonValue::Undefined, true}}, state)) {
+        qWarning() << "[inject] cannot update app-config.json, leaving it untouched:" << cfgPath;
+    }
+    return true;
 }
 
 bool restoreSettings(const QVector<SettingRecord>& records)
@@ -1431,6 +1449,7 @@ InjectResult Injector::install(const QString& itemId, const QString& promptFile,
         if (!writeWithRetry(spec.path, out, spec.kind == TargetKind::MemoryArchive)) {
             qWarning() << "[inject] write failed" << spec.path;
             r.error = errText(Strings::ErrWriteTarget);
+            r.error += QStringLiteral(" (") + QFileInfo(spec.path).fileName() + QLatin1Char(')');
             return r;
         }
 
@@ -1456,6 +1475,8 @@ InjectResult Injector::install(const QString& itemId, const QString& promptFile,
             } else {
                 qWarning() << "[inject] node --check FAILED, rolling back:" << spec.path;
                 r.error = errText(Strings::ErrWriteTarget);
+                r.error += QStringLiteral(" (node --check: ") +
+                           QFileInfo(spec.path).fileName() + QLatin1Char(')');
                 return r;
             }
         }
