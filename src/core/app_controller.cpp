@@ -395,6 +395,21 @@ void AppController::refreshPrompts()
     emit promptsChanged();
 }
 
+bool AppController::restorePrompt(const QString& name)
+{
+    if (m_operationBusy || m_updateInProgress) return false;
+    const bool cn = Strings::instance()->lang() == Strings::CN;
+    if (!Prompts::restoreBuiltin(name)) {
+        emit errorRaised(cn ? QStringLiteral("没有找到对应的内置提示词")
+                            : QStringLiteral("No bundled prompt with that name"));
+        return false;
+    }
+    emit promptsChanged();
+    emit toast(cn ? QStringLiteral("已恢复内置提示词，原文件备份为 .bak")
+                  : QStringLiteral("Bundled prompt restored; previous file saved as .bak"));
+    return true;
+}
+
 void AppController::openUrl(const QString& url)
 {
     if (url.isEmpty()) return;
@@ -575,15 +590,15 @@ auto runInWorker(QObject* parent, Fn fn)
 
 } // namespace
 
-bool AppController::install(const QString& itemId, const QString& promptFile)
+bool AppController::install(const QString& itemId, const QString& promptFile, bool force)
 {
     if (m_operationBusy || m_updateInProgress) return false;
     QScopedValueRollback<bool> busy(m_operationBusy, true);
     const QString displayName = itemDisplayName(itemId);
     emit installStarted(displayName, /*uninstalling=*/false);
 
-    const auto r = runInWorker(this, [itemId, promptFile]() {
-        return Injector::install(itemId, promptFile);
+    const auto r = runInWorker(this, [itemId, promptFile, force]() {
+        return Injector::install(itemId, promptFile, force);
     });
 
     emit installFinished();

@@ -75,7 +75,10 @@ public:
     // install_plan.h): WorkBuddy writes SOUL.md + each memory archive +
     // MEMORY.md, Codex writes AGENTS.md + managed-prompts + config.toml
     // pointer, Cursor probes rule dirs, etc.
-    static InjectResult install(const QString& itemId, const QString& promptFile);
+    // force skips host-tool detection and writes the targets anyway; the UI
+    // only offers it after an explicit "I already installed it" confirmation.
+    static InjectResult install(const QString& itemId, const QString& promptFile,
+                                bool force = false);
     static InjectResult uninstall(const QString& itemId);
 
     // State scan: inspects the target file + the state file to decide colour.

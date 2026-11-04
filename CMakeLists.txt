@@ -11,7 +11,7 @@ if(CMAKE_HOST_APPLE AND NOT DEFINED CMAKE_OSX_DEPLOYMENT_TARGET)
 endif()
 
 project(Ua
-    VERSION 2.2.4
+    VERSION 2.2.5
     DESCRIPTION "Ua Toolbox - cross-platform AI tool prompt installer"
     LANGUAGES CXX
 )

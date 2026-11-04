@@ -19,6 +19,9 @@ Item {
         return 0
     }
     property bool   confirmUninstall: false
+    // Shown only after the user confirms the tool is installed elsewhere; the
+    // install then skips host detection for this dialog.
+    property bool   forceInstall: false
 
     Rectangle {
         anchors.fill: parent
@@ -174,6 +177,16 @@ Item {
             color: Theme.sub
             font.pixelSize: 11
         }
+        DialogButton {
+            objectName: "restorePromptButton"
+            anchors { right: parent.right; top: promptsLabel.top; rightMargin: 16 }
+            width: 128; height: 20
+            label: Strings.lang === 0 ? "恢复内置提示词" : "Restore bundled"
+            onTriggered: {
+                if (root.promptList.length > 0)
+                    app.restorePrompt(root.promptList[root.selectedPrompt].name)
+            }
+        }
 
         ListView {
             id: promptsList
@@ -208,6 +221,19 @@ Item {
                     onClicked: root.selectedPrompt = index
                 }
             }
+        }
+
+        DialogButton {
+            objectName: "forceInstallButton"
+            visible: root.itemId !== "vscode" && root.item && root.item.supported &&
+                     !root.item.detected && root.promptList.length > 0
+            anchors { left: parent.left; top: promptsList.bottom; leftMargin: 16; topMargin: 6 }
+            width: 150; height: 22
+            primary: root.forceInstall
+            label: root.forceInstall
+                   ? (Strings.lang === 0 ? "已确认，强制写入" : "Confirmed — write anyway")
+                   : (Strings.lang === 0 ? "我已安装，仍然安装" : "Install anyway")
+            onTriggered: root.forceInstall = !root.forceInstall
         }
 
         Text {
@@ -321,10 +347,10 @@ Item {
                 objectName: "installButton"
                 label: (Strings.lang, Strings.t(Strings.Inject))
                 primary: true
-                actionable: root.item && root.item.detected && root.promptList.length > 0
+                actionable: root.item && (root.item.detected || root.forceInstall) && root.promptList.length > 0
                 onTriggered: {
                     const promptFile = root.promptList[root.selectedPrompt].fullPath
-                    if (app.install(root.itemId, promptFile)) {
+                    if (app.install(root.itemId, promptFile, root.forceInstall)) {
                         app.showToast(root.item.name + " · " + (root.item.hint || (Strings.lang, Strings.t(Strings.InjectRestartHint))))
                         root.closeRequested()
                     }
@@ -414,7 +440,9 @@ Item {
         Text {
             anchors.centerIn: parent
             visible: btn.glyph === ""
-            width: visible ? implicitWidth : 0
+            width: visible ? btn.width - 8 : 0
+            horizontalAlignment: Text.AlignHCenter
+            elide: Text.ElideRight
             text: btn.label
             color: btn.primary ? "#1A1A1A" : Theme.text
             font.pixelSize: 11

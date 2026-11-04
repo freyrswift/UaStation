@@ -51,8 +51,11 @@ public slots:
     void refreshPrompts();
     void openUrl(const QString& url);
     void revealTargetDir(const QString& itemId);
-    bool install(const QString& itemId, const QString& promptFile);
+    bool install(const QString& itemId, const QString& promptFile, bool force = false);
     bool uninstall(const QString& itemId);
+
+    // Overwrite a prompt file with the bundled copy (backs up the old one).
+    bool restorePrompt(const QString& name);
 
     // Return the single prompt appropriate for a given tool.
     QVariantList promptsFor(const QString& itemId);

@@ -28,6 +28,10 @@ public:
 
     // Resolve the preferred prompt for a given tool id: <id>.md > Ua.md > first.
     static QString pickFor(const QString& itemId);
+
+    // Replace promptsDir()/<name> with the bundled resource of that name,
+    // keeping a .bak copy of the previous file. False when no such bundle.
+    static bool restoreBuiltin(const QString& name);
 };
 
 } // namespace ua::core

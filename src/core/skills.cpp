@@ -18,6 +18,7 @@
 #include <QJsonObject>
 #include <QRegularExpression>
 #include <QSet>
+#include <QThread>
 #include <algorithm>
 
 namespace ua::core {
@@ -130,29 +131,46 @@ QStringList bundledFiles(const QString& name)
     return files;
 }
 
-QStringList recordedFiles(const QString& itemId, const QString& name, bool* ok)
+QStringList recordedFiles(const QString& itemId, const QString& name, bool* ok,
+                          QStringList* kept = nullptr)
 {
     *ok = true;
+    if (kept) kept->clear();
     if (itemId.isEmpty() || !QFileInfo::exists(manifestPath(itemId, name)))
         return {"SKILL.md"};
     bool read = false;
     const auto doc = QJsonDocument::fromJson(Injector::readFile(manifestPath(itemId, name), &read));
-    *ok = read && doc.isObject() && doc.object().value("version").toInt() == 1 &&
-          doc.object().value("files").isArray();
-    QStringList files;
+    const auto root = doc.object();
+    const int version = root.value(QStringLiteral("version")).toInt();
+    *ok = read && doc.isObject() && (version == 1 || version == 2) &&
+          root.value(QStringLiteral("files")).isArray();
+    if (*ok)
+        *ok = root.value(QStringLiteral("kept")).isUndefined() ||
+              root.value(QStringLiteral("kept")).isArray();
     if (!*ok) return {};
+
+    QStringList files;
+    QStringList keptFiles;
     QSet<QString> seen;
-    for (const auto& value : doc.object().value("files").toArray()) {
+    const auto append = [&](const QJsonValue& value, QStringList& out) {
         const auto path = value.toString();
         const auto key = path.toCaseFolded();
-        if (!value.isString() || !validRelative(path) || seen.contains(key)) {
-            *ok = false;
-            return {};
-        }
+        if (!value.isString() || !validRelative(path) || seen.contains(key)) return false;
         seen.insert(key);
-        files << path;
+        out << path;
+        return true;
+    };
+    for (const auto& value : root.value(QStringLiteral("files")).toArray()) {
+        if (!append(value, files)) { *ok = false; return {}; }
     }
-    *ok = files.contains("SKILL.md");
+    if (version >= 1) {
+        for (const auto& value : root.value(QStringLiteral("kept")).toArray()) {
+            if (!append(value, keptFiles)) { *ok = false; return {}; }
+        }
+    }
+    *ok = files.contains(QStringLiteral("SKILL.md")) ||
+          keptFiles.contains(QStringLiteral("SKILL.md"));
+    if (kept) *kept = keptFiles;
     return files;
 }
 
@@ -174,29 +192,74 @@ QStringList loadInstalledNames(const QString& itemId)
     return out;
 }
 
+bool writeFile(const QString& path, const QByteArray& data);
+
 bool saveInstalledNames(const QString& itemId, const QStringList& names)
 {
-    return Injector::writeAtomic(skillsStateFileFor(itemId), (names.join('\n') + '\n').toUtf8());
+    return writeFile(skillsStateFileFor(itemId), (names.join('\n') + '\n').toUtf8());
 }
 
 bool removeFile(const QString& path)
 {
-    return !QFileInfo::exists(path) ||
-        (detail::transactionWritable(path) && QFile::remove(path));
+    // Antivirus scanners, sync clients and hosts can hold a file open for a
+    // short window; retry instead of failing the whole library.
+    for (int attempt = 0; attempt < 3; ++attempt) {
+        if (!QFileInfo::exists(path)) return true;
+        if (detail::transactionWritable(path) && QFile::remove(path)) return true;
+        if (attempt < 2) QThread::msleep(120);
+    }
+    return false;
 }
 
-bool extractFile(const QString& itemId, const QString& name, const QString& relative,
-                 const QString& root, bool legacyOwned)
+// Same rationale as removeFile(), plus clearing a read-only attribute left by
+// an external tool so the atomic replacement can rename over the target.
+bool writeFile(const QString& path, const QByteArray& data)
+{
+    for (int attempt = 0; attempt < 3; ++attempt) {
+        const QFileInfo info(path);
+        if (info.exists()) {
+            const auto permissions = info.permissions();
+            if (!(permissions & QFile::WriteUser))
+                QFile::setPermissions(path, permissions | QFile::WriteUser | QFile::WriteOwner);
+        }
+        if (Injector::writeAtomic(path, data)) return true;
+        if (attempt < 2) QThread::msleep(200);
+    }
+    return false;
+}
+
+bool restoreCopy(const QString& source, const QString& target, QFile::Permissions permissions)
+{
+    for (int attempt = 0; attempt < 3; ++attempt) {
+        if (detail::safeCopy(source, target) && QFile::setPermissions(target, permissions)) return true;
+        if (attempt < 2) QThread::msleep(150);
+    }
+    return false;
+}
+
+enum class FileOutcome { Written, Kept, Failed };
+
+FileOutcome extractFile(const QString& itemId, const QString& name, const QString& relative,
+                        const QString& root, bool legacyOwned)
 {
     bool read = false;
     QByteArray data = Injector::readFile(":/skills/" + name + '/' + relative, &read);
-    if (!read) return false;
+    if (!read) {
+        qWarning() << "[skills] bundle resource missing" << name << relative;
+        return FileOutcome::Failed;
+    }
     if (itemId == QLatin1String("vscode") && relative == QLatin1String("SKILL.md")) {
         data = SkillCatalog::normalize(data, name, &read);
-        if (!read) return false;
+        if (!read) {
+            qWarning() << "[skills] metadata normalisation failed" << name;
+            return FileOutcome::Failed;
+        }
     }
     const QString target = root + '/' + name + '/' + relative;
-    if (!plainPath(target, root)) return false;
+    if (!plainPath(target, root)) {
+        qWarning() << "[skills] path boundary rejected" << target;
+        return FileOutcome::Failed;
+    }
     const QString original = metaPath(itemId, name, relative, ".orig");
     const QString created = metaPath(itemId, name, relative, ".new");
     const QString stamp = metaPath(itemId, name, relative, ".sha256");
@@ -205,26 +268,46 @@ bool extractFile(const QString& itemId, const QString& name, const QString& rela
     QByteArray current;
     if (exists) {
         current = Injector::readFile(target, &read);
-        if (!read || (tracked && skillHash(current) != Injector::readFile(stamp).trimmed())) {
-            qWarning() << "[skills] preserving modified file" << target;
-            return false;
+        if (!read) {
+            qWarning() << "[skills] preserving unreadable file" << target;
+            return FileOutcome::Kept;
         }
-        if (tracked && current == data) return true;
+        if (tracked && skillHash(current) != Injector::readFile(stamp).trimmed()) {
+            qWarning() << "[skills] preserving modified file" << target;
+            return FileOutcome::Kept;
+        }
+        if (tracked && current == data) return FileOutcome::Written;
     }
     if (!tracked) {
         if (exists && !(legacyOwned && relative == "SKILL.md" && current == data)) {
-            if (!QDir().mkpath(QFileInfo(original).absolutePath()) || !QFile::copy(target, original))
-                return false;
-        } else if (!Injector::writeAtomic(created, {})) return false;
+            if (!QDir().mkpath(QFileInfo(original).absolutePath()) || !QFile::copy(target, original)) {
+                qWarning() << "[skills] cannot back up" << target << "->" << original;
+                return FileOutcome::Failed;
+            }
+        } else if (!writeFile(created, {})) {
+            qWarning() << "[skills] cannot write marker" << created;
+            return FileOutcome::Failed;
+        }
     }
-    return Injector::writeAtomic(stamp, skillHash(data)) && Injector::writeAtomic(target, data);
+    if (!writeFile(stamp, skillHash(data))) {
+        qWarning() << "[skills] cannot write stamp" << stamp;
+        return exists ? FileOutcome::Kept : FileOutcome::Failed;
+    }
+    if (!writeFile(target, data)) {
+        qWarning() << "[skills] cannot write target" << target;
+        return exists ? FileOutcome::Kept : FileOutcome::Failed;
+    }
+    return FileOutcome::Written;
 }
 
 bool restoreFile(const QString& itemId, const QString& name, const QString& relative,
                  const QString& root)
 {
     const QString target = root + '/' + name + '/' + relative;
-    if (!plainPath(target, root)) return false;
+    if (!plainPath(target, root)) {
+        qWarning() << "[skills] restore path boundary rejected" << target;
+        return false;
+    }
     const QString original = itemId.isEmpty() ? QString() : metaPath(itemId, name, relative, ".orig");
     const QString created = itemId.isEmpty() ? QString() : metaPath(itemId, name, relative, ".new");
     const QString stamp = itemId.isEmpty() ? QString() : metaPath(itemId, name, relative, ".sha256");
@@ -233,21 +316,33 @@ bool restoreFile(const QString& itemId, const QString& name, const QString& rela
     const auto current = exists ? Injector::readFile(target, &read) : QByteArray();
     if (exists && (!read || (QFileInfo::exists(stamp) &&
         skillHash(current) != Injector::readFile(stamp).trimmed()))) {
-        qWarning() << "[skills] preserving user changes" << target;
+        qWarning() << "[skills] preserving user changes" << target
+                   << (read ? "hash mismatch" : "unreadable");
         return false;
     }
     if (QFileInfo::exists(original)) {
         const auto permissions = QFileInfo(original).permissions();
-        if (!detail::safeCopy(original, target) || !QFile::setPermissions(target, permissions))
+        if (!restoreCopy(original, target, permissions)) {
+            qWarning() << "[skills] cannot restore original" << original << "->" << target;
             return false;
+        }
     } else if (QFileInfo::exists(created)) {
-        if (!removeFile(target)) return false;
+        if (!removeFile(target)) {
+            qWarning() << "[skills] cannot remove created file" << target;
+            return false;
+        }
     } else if (exists) {
         const auto bundled = Injector::readFile(":/skills/" + name + '/' + relative, &read);
-        if (!read || current != bundled || !removeFile(target)) return false;
+        if (!read || current != bundled || !removeFile(target)) {
+            qWarning() << "[skills] cannot remove unmodified file" << target;
+            return false;
+        }
     }
     for (const auto& metadata : {original, created, stamp}) {
-        if (!metadata.isEmpty() && !removeFile(metadata)) return false;
+        if (!metadata.isEmpty() && !removeFile(metadata)) {
+            qWarning() << "[skills] cannot remove metadata" << metadata;
+            return false;
+        }
     }
     return true;
 }
@@ -258,9 +353,11 @@ bool packageIntact(const QString& itemId, const QString& root, const QString& na
     const auto required = bundledFiles(name);
     if (!required.contains("SKILL.md")) return false;
     bool valid = true;
-    const auto files = recordedFiles(itemId, name, &valid);
-    if (!valid || files.size() != required.size()) return false;
+    QStringList kept;
+    const auto files = recordedFiles(itemId, name, &valid, &kept);
+    if (!valid) return false;
     for (const auto& relative : required) {
+        if (kept.contains(relative)) continue;   // intentionally user-owned
         if (!files.contains(relative)) return false;
         const QString target = root + '/' + name + '/' + relative;
         if (!plainPath(target, root) || !QFileInfo(target).isFile()) return false;
@@ -274,7 +371,7 @@ bool packageIntact(const QString& itemId, const QString& root, const QString& na
         if (skillHash(data) != Injector::readFile(metaPath(itemId, name, relative, ".sha256")).trimmed())
             return false;
     }
-    if (itemId == QLatin1String("vscode")) {
+    if (itemId == QLatin1String("vscode") && !kept.contains(QStringLiteral("SKILL.md"))) {
         SkillMetadata metadata;
         if (!SkillCatalog::parse(Injector::readFile(root + '/' + name + "/SKILL.md"), &metadata) ||
             metadata.name != name) return false;
@@ -302,9 +399,15 @@ const Item* itemWithSkills(const QString& itemId)
 } // namespace
 
 QStringList Skills::installInto(const QString& itemId, const QString& root, bool* ok,
-                               ProgressCallback progress)
+                               ProgressCallback progress, QString* failedSkill)
 {
     if (ok) *ok = false;
+    // Records which package was being written when the install stopped, so the
+    // injected error can name it instead of only saying "write failed".
+    const auto fail = [failedSkill](const QString& name) {
+        if (failedSkill) *failedSkill = name;
+        return QStringList{};
+    };
     if (!itemWithSkills(itemId) || !QDir::isAbsolutePath(root) || !plainPath(root)) return {};
     const QString normalizedRoot = QDir::cleanPath(root);
     const QString sharedRoot = sharedSkillsRoot();
@@ -335,42 +438,76 @@ QStringList Skills::installInto(const QString& itemId, const QString& root, bool
     if (!savedRoot.isEmpty() && savedRoot != normalizedRoot && !prior.isEmpty()) {
         if (!captureFiles(tx, itemId, savedRoot, prior)) return {};
         bool removed = false;
-        removeFrom(savedRoot, prior, itemId, &removed);
-        if (!removed) return {};
+        QString failedName;
+        removeFrom(savedRoot, prior, itemId, &removed, &failedName);
+        if (!removed) return fail(failedName);
     }
     if (savedRoot == normalizedRoot) {
         QStringList retired;
         for (const auto& name : prior) if (!currentNames.contains(name)) retired << name;
         if (!retired.isEmpty()) {
             bool removed = false;
-            removeFrom(normalizedRoot, retired, itemId, &removed);
-            if (!removed) return {};
+            QString failedName;
+            removeFrom(normalizedRoot, retired, itemId, &removed, &failedName);
+            if (!removed) return fail(failedName);
         }
     }
-    if (!Injector::writeAtomic(skillsRootFileFor(itemId), normalizedRoot.toUtf8())) return {};
+    if (!writeFile(skillsRootFileFor(itemId), normalizedRoot.toUtf8())) return {};
     QStringList installed;
     int completed = 0;
     const int total = allSkills().size();
     for (const auto& skill : allSkills()) {
         const auto files = bundledFiles(skill.dirName);
-        if (!files.contains("SKILL.md")) return {};
+        if (!files.contains("SKILL.md")) {
+            qWarning() << "[skills] package has no usable SKILL.md" << skill.dirName;
+            return fail(skill.dirName);
+        }
         bool valid = false;
         const auto oldFiles = recordedFiles(itemId, skill.dirName, &valid);
-        if (!valid) return {};
+        if (!valid) {
+            qWarning() << "[skills] manifest invalid" << manifestPath(itemId, skill.dirName);
+            return fail(skill.dirName);
+        }
         const bool legacy = savedRoot == normalizedRoot && prior.contains(skill.dirName) &&
                             !QFileInfo::exists(manifestPath(itemId, skill.dirName));
         for (const auto& relative : oldFiles) {
-            if (!files.contains(relative) && !restoreFile(itemId, skill.dirName, relative, normalizedRoot))
-                return {};
+            if (!files.contains(relative) &&
+                !restoreFile(itemId, skill.dirName, relative, normalizedRoot)) {
+                // A retired file the host changed is left in place; it is no
+                // longer part of the package and must not block the update.
+                qWarning() << "[skills] leaving obsolete user file" << skill.dirName << relative;
+            }
         }
+        QStringList written;
+        QStringList kept;
         for (const auto& relative : files) {
             const auto target = normalizedRoot + '/' + skill.dirName + '/' + relative;
             if (progress) progress(completed, total, target);
-            if (!extractFile(itemId, skill.dirName, relative, normalizedRoot, legacy)) return {};
+            switch (extractFile(itemId, skill.dirName, relative, normalizedRoot, legacy)) {
+            case FileOutcome::Written:
+                written << relative;
+                break;
+            case FileOutcome::Kept:
+                kept << relative;
+                break;
+            case FileOutcome::Failed:
+                return fail(skill.dirName);
+            }
         }
-        const auto manifest = QJsonDocument(QJsonObject{
-            {"version", 1}, {"files", QJsonArray::fromStringList(files)}}).toJson();
-        if (!Injector::writeAtomic(manifestPath(itemId, skill.dirName), manifest)) return {};
+        if (!kept.isEmpty()) {
+            qInfo() << "[skills] kept user files" << skill.dirName << kept.size()
+                    << "of" << files.size();
+        }
+        QJsonObject manifestObject{
+            {QStringLiteral("version"), 1},
+            {QStringLiteral("files"), QJsonArray::fromStringList(written)}};
+        if (!kept.isEmpty())
+            manifestObject[QStringLiteral("kept")] = QJsonArray::fromStringList(kept);
+        const auto manifest = QJsonDocument(manifestObject).toJson();
+        if (!writeFile(manifestPath(itemId, skill.dirName), manifest)) {
+            qWarning() << "[skills] cannot write manifest" << manifestPath(itemId, skill.dirName);
+            return fail(skill.dirName);
+        }
         installed << skill.dirName;
         if (progress) progress(++completed, total, normalizedRoot + '/' + skill.dirName + "/SKILL.md");
     }
@@ -390,7 +527,8 @@ int Skills::removeFrom(const QString& root, const QStringList& names)
     return removeFrom(root, names, QString());
 }
 
-int Skills::removeFrom(const QString& root, const QStringList& names, const QString& itemId, bool* ok)
+int Skills::removeFrom(const QString& root, const QStringList& names, const QString& itemId, bool* ok,
+                       QString* failedSkill)
 {
     if (ok) *ok = false;
     if (!QDir::isAbsolutePath(root) || !plainPath(root) ||
@@ -402,10 +540,21 @@ int Skills::removeFrom(const QString& root, const QStringList& names, const QStr
     QStringList emptyDirs;
     for (const auto& name : names) {
         bool valid = false;
-        const auto files = recordedFiles(itemId, name, &valid);
-        if (!valid) return 0;
+        QStringList kept;
+        const auto files = recordedFiles(itemId, name, &valid, &kept);
+        if (!valid) { if (failedSkill) *failedSkill = name; return 0; }
+        int leftovers = 0;
+        for (const auto& relative : kept) {
+            qWarning() << "[skills] keeping user-modified file" << (root + '/' + name + '/' + relative);
+            ++leftovers;
+        }
         for (const auto& relative : files) {
-            if (!restoreFile(itemId, name, relative, root)) return 0;
+            if (!restoreFile(itemId, name, relative, root)) {
+                // A file the host or the user changed is kept in place; it must
+                // not block uninstalling the rest of the package.
+                ++leftovers;
+                continue;
+            }
             QString dir = QFileInfo(root + '/' + name + '/' + relative).absolutePath();
             const QString boundary = QDir::cleanPath(root);
             while (dir.startsWith(boundary + '/')) {
@@ -413,8 +562,23 @@ int Skills::removeFrom(const QString& root, const QStringList& names, const QStr
                 dir = QFileInfo(dir).absolutePath();
             }
         }
-        if (!itemId.isEmpty() && !removeFile(manifestPath(itemId, name))) return 0;
+        if (leftovers)
+            qInfo() << "[skills] uninstall kept" << leftovers << "file(s) in" << name;
+        if (!itemId.isEmpty() && !removeFile(manifestPath(itemId, name))) {
+            if (failedSkill) *failedSkill = name;
+            return 0;
+        }
         remaining.removeAll(name);
+
+        // Kept files can leave now-empty directories behind; collect every
+        // directory under the package and remove the empty ones after commit.
+        const QString packageRoot = QDir::cleanPath(root + '/' + name);
+        if (QFileInfo(packageRoot).isDir()) {
+            emptyDirs << packageRoot;
+            QDirIterator dirs(packageRoot, QDir::Dirs | QDir::NoDotAndDotDot,
+                              QDirIterator::Subdirectories);
+            while (dirs.hasNext()) emptyDirs << dirs.next();
+        }
     }
     if (!itemId.isEmpty()) {
         if (remaining.isEmpty()) {
@@ -477,8 +641,10 @@ QStringList Skills::transactionFiles(const QString& itemId, const QString& root,
     for (const auto& name : names) {
         if (!validName(name)) return {};
         bool valid = false;
-        QStringList files = recordedFiles(itemId, name, &valid);
+        QStringList kept;
+        QStringList files = recordedFiles(itemId, name, &valid, &kept);
         if (!valid) return {};
+        files << kept;
         files << bundledFiles(name);
         files.removeDuplicates();
         if (!itemId.isEmpty()) paths << manifestPath(itemId, name);

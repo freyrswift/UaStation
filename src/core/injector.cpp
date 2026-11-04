@@ -423,7 +423,8 @@ QByteArray prepareIndex(const QString& itemId, const InstallPlan& plan, QByteArr
     QByteArray decorated = withDiscovery(true);
     if (plan.maxChars > 0) {
         for (const auto& target : plan.targets) {
-            if (target.kind == TargetKind::PolicyReplace || target.kind == TargetKind::JsPatch) continue;
+            if (target.kind == TargetKind::PolicyReplace || target.kind == TargetKind::JsPatch ||
+                target.kind == TargetKind::MemoryArchive) continue;
             const bool existed = QFileInfo::exists(target.path);
             bool read = false;
             const auto doc = Injector::readFile(target.path, &read);
@@ -1224,7 +1225,7 @@ bool Injector::hostUpgraded(const QString& itemId)
 // ---------------------------------------------------------------------------
 // Install
 // ---------------------------------------------------------------------------
-InjectResult Injector::install(const QString& itemId, const QString& promptFile)
+InjectResult Injector::install(const QString& itemId, const QString& promptFile, bool force)
 {
     const QString timestamp = isoNow();
     InjectResult r;
@@ -1244,12 +1245,14 @@ InjectResult Injector::install(const QString& itemId, const QString& promptFile)
 
     // Refuse to install when the host tool isn't actually on this machine,
     // otherwise we'd create an empty config dir and make the tool look
-    // installed on subsequent scans.
-    if (!toolDetectedById(itemId)) {
+    // installed on subsequent scans. The UI can override this after an
+    // explicit "I already installed it" confirmation.
+    if (!force && !toolDetectedById(itemId)) {
         qWarning() << "[inject] fail: tool not detected" << itemId;
         r.error = errText(Strings::ToolNotFound);
         return r;
     }
+    if (force) qInfo() << "[inject] forcing install without host detection" << itemId;
 
     bool ok = false;
     QByteArray prompt = readFile(promptFile, &ok);
@@ -1273,6 +1276,13 @@ InjectResult Injector::install(const QString& itemId, const QString& promptFile)
         return r;
     }
     if (!haveState) st.installedAt = QDateTime::currentMSecsSinceEpoch();
+
+    // Memory archives are a host data format, not an instruction channel, and
+    // buildMemoryArchive() stores the body twice (markdown + JSON payload).
+    // Archives therefore use this compact body without the skill-discovery
+    // block so the instruction cap (WorkBuddy 10000) is not consumed twice;
+    // the primary instruction targets keep the discovery block.
+    const QByteArray archivePrompt = decoratePrompt(itemId, prompt);
 
     const QByteArray index = prepareIndex(itemId, plan, prompt, timestamp);
     if (plan.injectSkillIndex && !plan.skillsDir.isEmpty() && index.isEmpty()) {
@@ -1404,7 +1414,8 @@ InjectResult Injector::install(const QString& itemId, const QString& promptFile)
             }
         }
 
-        const QByteArray out = renderTarget(spec, prompt, doc, existed, timestamp);
+        const QByteArray& body = spec.kind == TargetKind::MemoryArchive ? archivePrompt : prompt;
+        const QByteArray out = renderTarget(spec, body, doc, existed, timestamp);
 
         if (plan.maxChars > 0 &&
             spec.kind != TargetKind::PolicyReplace &&
@@ -1484,14 +1495,18 @@ InjectResult Injector::install(const QString& itemId, const QString& promptFile)
     if (!plan.skillsDir.isEmpty()) {
         report(plan.skillsDir);
         bool skillsOk = false;
+        QString failedSkill;
         const int skillStart = completed;
         const QStringList names = Skills::installInto(itemId, plan.skillsDir, &skillsOk,
             [&](int current, int, const QString& path) {
                 completed = skillStart + current;
                 report(path);
-            });
+            }, &failedSkill);
         if (!skillsOk) {
             r.error = errText(Strings::ErrWriteTarget);
+            if (!failedSkill.isEmpty()) {
+                r.error += QStringLiteral(" (") + failedSkill + QLatin1Char(')');
+            }
             return r;
         }
         qInfo() << "[inject] skills installed:" << names.size() << plan.skillsDir;
@@ -1697,9 +1712,13 @@ InjectResult Injector::uninstall(const QString& itemId)
             return r;
         }
         bool removed = false;
-        Skills::removeFrom(root, currentSkills, itemId, &removed);
+        QString failedSkill;
+        Skills::removeFrom(root, currentSkills, itemId, &removed, &failedSkill);
         if (!removed) {
             r.error = errText(Strings::ErrRestore);
+            if (!failedSkill.isEmpty()) {
+                r.error += QStringLiteral(" (") + failedSkill + QLatin1Char(')');
+            }
             return r;
         }
     }

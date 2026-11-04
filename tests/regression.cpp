@@ -107,6 +107,13 @@ static void promptTests(const QString& root, const std::function<void(bool, cons
         check(!resource.isEmpty() && Injector::readFile(directory + '/' + name) == resource,
               qPrintable(name + " extracts the exact embedded bytes"));
     }
+    const QString promptPath = directory + "/Ua.md";
+    const QByteArray bundledPrompt = Injector::readFile(":/prompts/Ua.md");
+    put(promptPath, "user edited prompt\n");
+    check(Prompts::restoreBuiltin("Ua.md") && Injector::readFile(promptPath) == bundledPrompt &&
+          Injector::readFile(promptPath + ".bak") == "user edited prompt\n" &&
+          !Prompts::restoreBuiltin("missing.md") && !Prompts::restoreBuiltin("../Ua.md"),
+          "restore replaces a prompt from the bundle and backs up the previous file");
 
     for (const auto& item : allItems()) {
         if (item.group != ItemGroup::Editor) continue;
@@ -633,18 +640,18 @@ static void sharedSkillsTests(const QString& root, const std::function<void(bool
     put(changed, "User-edited shared reference.\n");
     bool conflictInstall = true;
     Skills::installInto("vscode", library, &conflictInstall);
-    check(!installedReference.isEmpty() && !conflictInstall &&
+    const QJsonObject conflictManifest = QJsonDocument::fromJson(Injector::readFile(manifestPath)).object();
+    const QJsonArray conflictKept = conflictManifest.value("kept").toArray();
+    check(!installedReference.isEmpty() && conflictInstall &&
           Injector::readFile(changed) == "User-edited shared reference.\n" &&
-          Injector::readFile(originalPath) == installedSkill && Injector::readFile(manifestPath) == manifest &&
-          Injector::readFile(stateDir() + "/vscode-skills.dat") == namesState,
-          "shared reinstall conflict preserves external edits and rolls package ownership metadata back");
-    bool conflictRemove = true;
-    const int removedBeforeRepair = Skills::removeFrom(library, names, "vscode", &conflictRemove);
-    check(!conflictRemove && removedBeforeRepair == 0 && Injector::readFile(originalPath) == installedSkill &&
-          Injector::readFile(changed) == "User-edited shared reference.\n" &&
-          Injector::readFile(manifestPath) == manifest,
-          "shared uninstall conflict rolls earlier restores back without deleting edited assets");
+          Injector::readFile(originalPath) == installedSkill &&
+          conflictManifest.value("version").toInt() == 1 &&
+          conflictKept.contains(QJsonValue(QStringLiteral("references/nested/guide.md"))),
+          "shared reinstall keeps external edits and records them as user-owned");
     put(changed, installedReference);
+    bool keptCleared = false;
+    Skills::installInto("vscode", library, &keptCleared);
+    check(keptCleared, "restoring the shared reference clears the kept list");
 
     const QString referencesDir = package + "/references";
     const QString heldReferences = package + "/held-references";
@@ -759,6 +766,21 @@ static void sharedSkillsTests(const QString& root, const std::function<void(bool
           Injector::readFile(library + "/unrelated-local/SKILL.md") == "Unrelated local skill.\n" &&
           !QFileInfo::exists(changed) && !QFileInfo::exists(manifestPath),
           "shared uninstall restores originals removes owned assets and preserves unrelated local files");
+
+    selectFixture(root, "shared-skills-uninstall-conflict");
+    const QString conflictLibrary = homeDir() + "/.agents/skills";
+    bool conflictInstalled = false;
+    const auto conflictNames = Skills::installInto("vscode", conflictLibrary, &conflictInstalled);
+    const QString conflictSkill = conflictLibrary + '/' + name + "/references/nested/guide.md";
+    put(conflictSkill, "User-edited shared reference.\n");
+    bool conflictRemoved = false;
+    const int conflictRemovedCount = Skills::removeFrom(conflictLibrary, conflictNames, "vscode", &conflictRemoved);
+    check(conflictInstalled && conflictRemoved && conflictRemovedCount == conflictNames.size() &&
+          Injector::readFile(conflictSkill) == "User-edited shared reference.\n" &&
+          !QFileInfo::exists(conflictLibrary + '/' + name + "/SKILL.md") &&
+          !QFileInfo::exists(stateDir() + "/vscode-skills-backups/" +
+              QString::fromLatin1(name.toUtf8().toBase64(QByteArray::Base64UrlEncoding)) + ".files.json"),
+          "shared uninstall keeps edited assets and completes ownership cleanup");
 
     selectFixture(root, "shared-skills-legacy-repair");
     const auto legacyPlan = planFor(*vscode);
@@ -1170,10 +1192,12 @@ static void vscodeUiTests(const QString& root, const std::function<void(bool, co
                             labelsFit = labelsFit && child->width() + 8 <= button->width();
                     }
                 }
-                check(!frame.isNull() && choose->isVisible() && refresh->isVisible() && labelsFit && footerFits &&
+                const bool locationFits = !frame.isNull() && choose->isVisible() && refresh->isVisible() &&
+                      labelsFit && footerFits &&
                       chooseRect.left() >= 0 && refreshRect.right() <= panel->width() - 16 &&
                       chooseRect.bottom() < promptsRect.top() && refreshRect.bottom() < promptsRect.top() &&
-                      !chooseRect.intersects(refreshRect),
+                      !chooseRect.intersects(refreshRect);
+                check(locationFits,
                       "localized editor location controls render and fit without overlapping existing controls");
                 check(status->property("text").toString() == Strings::instance()->get(
                           absent ? Strings::ToolNotFound : Strings::NotInjected),
@@ -1366,15 +1390,22 @@ static void featureTests(const QString& root, const std::function<void(bool, con
           QFileInfo(script).lastModified() == scriptModified && QFileInfo(scriptStamp).lastModified() == stampModified,
           "unchanged managed companion reinstall preserves file and stamp bytes and modification times");
     put(reference, "user-edited reference\n");
-    bool removed = true;
-    check(Skills::removeFrom(skillsRoot, {name}, "claude", &removed) == 0 && !removed &&
-          Injector::readFile(script) == installedScript && QFileInfo::exists(asset),
-          "edited companion aborts uninstall and rolls earlier files back");
     bool conflict = true;
     Skills::installInto("claude", skillsRoot, &conflict);
-    check(!conflict && Injector::readFile(reference) == "user-edited reference\n" &&
-          jsonAt(meta + ".files.json") == manifest, "reinstall preserves user edits and manifest");
-    put(reference, Injector::readFile(":/skills/" + name + "/references/nested/guide.md"));
+    const auto keptManifest = QJsonDocument::fromJson(Injector::readFile(meta + ".files.json")).object();
+    check(conflict && Injector::readFile(reference) == "user-edited reference\n" &&
+          keptManifest.value("version").toInt() == 1 &&
+          keptManifest.value("kept").toArray().contains(
+              QJsonValue(QStringLiteral("references/nested/guide.md"))),
+          "reinstall keeps user edits and records them as user-owned");
+    bool removed = true;
+    const int removedCount = Skills::removeFrom(skillsRoot, {name}, "claude", &removed);
+    check(removed && removedCount == 1 &&
+          Injector::readFile(script) == "original script\n" &&
+          Injector::readFile(reference) == "user-edited reference\n" &&
+          !QFileInfo::exists(asset),
+          "uninstall keeps the edited companion and restores the rest");
+    QFile::remove(reference);
     Skills::removeFrom(skillsRoot, names, "claude", &removed);
     check(removed && Injector::readFile(script) == "original script\n" &&
           !QFileInfo::exists(reference) && !QFileInfo::exists(asset) &&
@@ -1565,15 +1596,45 @@ static void reliabilityTests(const QString& root, const std::function<void(bool,
     const auto installedSkill = plan.skillsDir + '/' + name + "/SKILL.md";
     const auto savedSkill = Injector::readFile(installedSkill);
     put(installedSkill, "User edit blocks reinstall\n");
-    const auto sidecarBefore = Injector::readFile(product + ".bak-inject");
-    check(!Injector::install("workbuddy", fixtureRoot + "/prompt.md").ok &&
+    check(Injector::install("workbuddy", fixtureRoot + "/prompt.md").ok &&
+          Injector::readFile(installedSkill) == "User edit blocks reinstall\n" &&
           Injector::readFile(product) == version2 &&
-          Injector::readFile(product + ".bak-inject") == sidecarBefore,
-          "failed reinstall rolls back the refreshed baseline");
+          Injector::readFile(product + ".bak-inject") == version2,
+          "reinstall keeps the edited skill and refreshes the host baseline");
     put(installedSkill, savedSkill);
     check(Injector::install("workbuddy", fixtureRoot + "/prompt.md").ok &&
           Injector::uninstall("workbuddy").ok && Injector::readFile(product) == version2,
           "uninstall after reinstall restores the upgraded host version");
+
+    // A memory archive stores its body twice (markdown + JSON payload). With a
+    // long prompt the doubled archive used to exceed WorkBuddy's 10000-char
+    // instruction cap even after the directory-name fallback, which made the
+    // whole WorkBuddy install fail. Archives must use the compact body instead.
+    workbuddyFixture(root, "workbuddy-memory-cap");
+    const QString memoryArchive = homeDir() + "/.workbuddy/memory/uid-fixture_memory.md";
+    put(memoryArchive, "# User Memory Profile\n> Version: 0\n\n## Memory Block\n\nold\n");
+    QByteArray longBody = "# Synthetic long body for the memory-archive cap\n";
+    while (longBody.size() < 3600)
+        longBody += "0123456789abcdefghijklmnopqrstuvwxyz0123456789\n";
+    put(fixtureRoot + "/long-prompt.md", longBody);
+    const bool memoryInstalled =
+        Injector::install("workbuddy", fixtureRoot + "/long-prompt.md").ok;
+    const QByteArray installedArchive = Injector::readFile(memoryArchive);
+    const QByteArray soul = Injector::readFile(homeDir() + "/.workbuddy/SOUL.md");
+    const int memoryCap = planFor(*itemById("workbuddy")).maxChars;
+    check(memoryInstalled && memoryCap == 10000 && installedArchive.contains(longBody) &&
+          !installedArchive.contains("# Ua Skill Discovery") &&
+          soul.contains("# Ua Skill Discovery") &&
+          QString::fromUtf8(soul).size() <= memoryCap &&
+          Injector::uninstall("workbuddy").ok,
+          "memory archives use the compact body so the cap cannot block WorkBuddy installation");
+
+    selectFixture(root, "force-install");
+    const bool forced = Injector::install("claude", fixtureRoot + "/prompt.md", true).ok;
+    check(forced && QFileInfo::exists(homeDir() + "/.claude/CLAUDE.md") &&
+          Injector::scan("claude") == InstallState::Installed &&
+          Injector::uninstall("claude").ok,
+          "forced install writes a profile whose tool was not detected yet");
 }
 
 int main(int argc, char** argv) {
@@ -1788,7 +1849,9 @@ int main(int argc, char** argv) {
     put(edited, "User edit after install\n");
     bool editedRemoved = true;
     Skills::removeFrom(editRoot, editedNames, "claude", &editedRemoved);
-    check(!editedRemoved && Injector::readFile(edited) == "User edit after install\n", "external skill edits are preserved");
+    check(editedRemoved && Injector::readFile(edited) == "User edit after install\n" &&
+          !QFileInfo::exists(editRoot + '/' + name + "/scripts/check.js"),
+          "external skill edits are preserved while uninstall completes");
 
     selectFixture(temp.path(), "partial");
     put(homeDir() + "/.codex/config.toml", original);
@@ -1801,12 +1864,14 @@ int main(int argc, char** argv) {
     put(homeDir() + "/.codex/config.toml", original);
     const bool beforeUninstall = Injector::install("codex", fixtureRoot + "/prompt.md").ok;
     const QString markedFile = homeDir() + "/.codex/AGENTS.md";
-    const QByteArray beforeMarked = Injector::readFile(markedFile);
     put(homeDir() + "/.codex/skills/" + name + "/SKILL.md", "Edited fixture skill\n");
-    check(beforeUninstall && !Injector::uninstall("codex").ok && Injector::hasState("codex") &&
-          Injector::readFile(markedFile) == beforeMarked &&
-          QFileInfo::exists(homeDir() + "/.codex/managed-prompts/Ua.md"),
-          "failed uninstall restores earlier targets and preserves state");
+    const auto failedRemoval = Injector::uninstall("codex");
+    check(beforeUninstall && failedRemoval.ok && !Injector::hasState("codex") &&
+          !QFileInfo::exists(markedFile) &&
+          !QFileInfo::exists(homeDir() + "/.codex/managed-prompts/Ua.md") &&
+          Injector::readFile(homeDir() + "/.codex/skills/" + name + "/SKILL.md") == "Edited fixture skill\n" &&
+          Injector::readFile(homeDir() + "/.codex/config.toml") == original,
+          "uninstall keeps the edited skill, clears state and restores prompt targets");
 
     selectFixture(temp.path(), "oversize");
     const QString large = homeDir() + "/.claude/CLAUDE.md";

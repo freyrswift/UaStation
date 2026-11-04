@@ -3,10 +3,12 @@
 #include "prompts.h"
 #include "paths.h"
 
+#include <QCryptographicHash>
 #include <QDir>
 #include <QDirIterator>
 #include <QFile>
 #include <QFileInfo>
+#include <QSaveFile>
 
 namespace ua::core {
 
@@ -21,15 +23,47 @@ constexpr EmbeddedPrompt kEmbedded[] = {
     { ":/prompts/kimi.md",      "kimi.md" },
 };
 
-// Copy a single qrc file to disk, preserving user edits.
-static void copyIfMissing(const QString& resourcePath, const QString& dst)
+bool writeBytes(const QString& path, const QByteArray& data)
 {
-    if (QFileInfo::exists(dst)) return; // Never overwrite user edits
+    QSaveFile out(path);
+    return out.open(QIODevice::WriteOnly) && out.write(data) == data.size() && out.commit();
+}
+
+QByteArray hashOf(const QByteArray& data)
+{
+    return QCryptographicHash::hash(data, QCryptographicHash::Sha256).toHex();
+}
+
+// The sidecar records the bundled bytes we last deployed. If the local copy
+// still matches it, the user never edited the file and a newer bundle may
+// replace it; otherwise the local edit wins.
+static void syncEmbedded(const QString& resourcePath, const QString& dst)
+{
     QFile in(resourcePath);
     if (!in.open(QIODevice::ReadOnly)) return;
-    QFile out(dst);
-    if (!out.open(QIODevice::WriteOnly | QIODevice::Truncate)) return;
-    out.write(in.readAll());
+    const QByteArray data = in.readAll();
+    if (data.isEmpty()) return;
+    const QString sidecar = dst + QStringLiteral(".ua-src");
+    const QString bundledHash = QString::fromLatin1(hashOf(data));
+    QFile local(dst);
+    if (!local.exists()) {
+        if (writeBytes(dst, data)) writeBytes(sidecar, bundledHash.toUtf8());
+        return;
+    }
+    if (!local.open(QIODevice::ReadOnly)) return;
+    const QByteArray current = local.readAll();
+    local.close();
+    if (current == data) {
+        writeBytes(sidecar, bundledHash.toUtf8());
+        return;
+    }
+    QFile previous(sidecar);
+    if (!previous.open(QIODevice::ReadOnly)) return;   // first run: keep the file
+    const QString deployed = QString::fromUtf8(previous.readAll()).trimmed();
+    if (deployed != QString::fromLatin1(hashOf(current))) return;  // user edit
+    QFile::remove(dst + QStringLiteral(".bak"));
+    QFile::copy(dst, dst + QStringLiteral(".bak"));
+    if (writeBytes(dst, data)) writeBytes(sidecar, bundledHash.toUtf8());
 }
 
 } // namespace
@@ -42,7 +76,7 @@ void Prompts::extractEmbedded()
     // Top-level shared and tool-specific prompt files.
     for (const auto& ep : kEmbedded) {
         const QString dst = QDir::cleanPath(dir + QLatin1Char('/') + QLatin1String(ep.filename));
-        copyIfMissing(QString::fromLatin1(ep.resource), dst);
+        syncEmbedded(QString::fromLatin1(ep.resource), dst);
     }
 
     // Leaf routing pack: router + normalizer + index + 80 LEAF-*.md.
@@ -56,7 +90,7 @@ void Prompts::extractEmbedded()
     while (it.hasNext()) {
         it.next();
         const QString dst = QDir::cleanPath(leavesDir + QLatin1Char('/') + it.fileName());
-        copyIfMissing(it.filePath(), dst);
+        syncEmbedded(it.filePath(), dst);
     }
 }
 
@@ -96,6 +130,27 @@ QString Prompts::pickFor(const QString& itemId)
 {
     const auto filtered = listFor(itemId);
     return filtered.isEmpty() ? QString() : filtered.first().fullPath;
+}
+
+bool Prompts::restoreBuiltin(const QString& name)
+{
+    if (name.isEmpty() || name.contains('/') || name.contains('\\') ||
+        name == QLatin1String(".") || name == QLatin1String("..")) return false;
+    QFile in(QStringLiteral(":/prompts/") + name);
+    if (!in.open(QIODevice::ReadOnly)) return false;
+    const QByteArray data = in.readAll();
+    if (data.isEmpty()) return false;
+    const QString dir = promptsDir();
+    if (!QDir().mkpath(dir)) return false;
+    const QString dst = QDir::cleanPath(dir + QLatin1Char('/') + name);
+    if (QFileInfo::exists(dst)) {
+        QFile::remove(dst + QStringLiteral(".bak"));
+        QFile::copy(dst, dst + QStringLiteral(".bak"));
+    }
+    if (!writeBytes(dst, data)) return false;
+    writeBytes(dst + QStringLiteral(".ua-src"),
+               QString::fromLatin1(hashOf(data)).toUtf8());
+    return true;
 }
 
 } // namespace ua::core

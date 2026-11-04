@@ -27,14 +27,17 @@ public:
 
     // Same, into an explicit absolute dir (products that resolve their own
     // config folder, e.g. WorkBuddy CN vs international). Returns the names
-    // actually written.
+    // actually written. On failure `failedSkill` receives the package that
+    // could not be written so callers can name it in the UI.
     static QStringList installInto(const QString& itemId, const QString& absSkillsDir,
-                                   bool* ok = nullptr, ProgressCallback progress = {});
+                                   bool* ok = nullptr, ProgressCallback progress = {},
+                                   QString* failedSkill = nullptr);
 
     // Delete the given skill folders from an absolute dir.
     static int removeFrom(const QString& absSkillsDir, const QStringList& names);
     static int removeFrom(const QString& absSkillsDir, const QStringList& names,
-                          const QString& itemId, bool* ok = nullptr);
+                          const QString& itemId, bool* ok = nullptr,
+                          QString* failedSkill = nullptr);
 
     // Last installed location, retained when an environment override changes.
     static QString installedRoot(const QString& itemId);
