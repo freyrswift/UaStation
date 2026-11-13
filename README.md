@@ -184,6 +184,10 @@ Visual Studio Code 中可使用 CMake Tools 配置、构建与运行已注册测
 - [使用与分发规则](docs/usage-policy.md)
 - QQ 交流群：**535041466** · [加入群聊](https://qm.qq.com/q/3XsJIxaZde)
 
+<p align="center">
+  <img src="docs/screenshots/qq-group.png" width="300" alt="QQ 交流群 535041466 二维码" />
+</p>
+
 ## 授权与来源
 
 当前新增的 Ua 自有内容适用 [Ua Non-Commercial Source-Available License 1.0](LICENSE)。
